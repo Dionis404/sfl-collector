@@ -1,8 +1,8 @@
 # sfl-collector
 
 Сборщик игровых данных Sunflower Land для сайта goblincodex. Единственный сервис,
-который ходит в SFL Community API: собирает данные в БД `sfl`, а сайт показывает их
-через `goblin-api`.
+который ходит в SFL Community API: собирает данные в БД `sfl` и отдаёт их сайту
+через собственный API (`sfl-collector-api`).
 
 | Что собирается | Откуда | Как часто | Таблица |
 |---|---|---|---|
@@ -27,8 +27,12 @@ SFL API  ◄──────┤ RateLimiter: 1 запрос / 6 с, на 429 �
                                                ▼
                                       Postgres, БД "sfl"
                                                ▼
-                               goblin-api  ──►  goblincodex.fun
+              sfl-collector-api (только чтение БД)  ──shared-net──►  goblincodex (Astro SSR)
 ```
+
+Один образ — три контейнера: `migrate` (одноразовый), `sfl-collector` (сборщики),
+`sfl-collector-api` (FastAPI). Порт API наружу не публикуется: сайт ходит по `shared-net`
+на `http://sfl-collector-api:8000`.
 
 **Лимит API — по IP** (~1 запрос в 5 с, при перегрузе 1 в 10 с) и общий для всех сервисов
 на VPS. Второй ключ его не увеличивает. Поэтому все запросы идут через один `RateLimiter`,
@@ -71,44 +75,61 @@ collector/
     items.py          поиск предмета, победители аукциона
   jobs/               задачи: tickets_leaderboard, top_farms, item_checks, nightly_dump
   main.py             запуск всех циклов
+api/main.py           API для сайта (FastAPI, только чтение + очередь ручных проверок)
 migrations/001_init.sql
 tests/
 ```
 
-## Таблицы для сайта (что читать в goblin-api)
+## API для сайта
 
-```sql
--- текущий торговец
-SELECT * FROM cave_merchant_visits ORDER BY last_seen DESC LIMIT 1;
+Базовый адрес внутри `shared-net`: `http://sfl-collector-api:8000`. Документация Swagger —
+`/docs` (открывается изнутри сети, например через SSH-туннель).
 
--- задания текущей недели
-SELECT * FROM weekly_chores WHERE last_seen = (SELECT max(last_seen) FROM weekly_chores);
+| Метод | Путь | Что отдаёт |
+|---|---|---|
+| GET | `/health` | проверка живости и доступа к БД |
+| GET | `/sfl/status` | последний запуск каждого сборщика (для «обновлено N минут назад») |
+| GET | `/sfl/merchant/current` | текущий визит торговца: предложения, `opens_at`, `closes_at`, `next_opens_at` |
+| GET | `/sfl/merchant/history?limit=20` | прошлые визиты |
+| GET | `/sfl/chores/current` | задания текущей недели |
+| GET | `/sfl/bounties/current?category=animal\|poppy` | баунти-борд |
+| GET | `/sfl/deliveries/tickets` | текущие билетные доставки (`items`, `base_tickets`, `share`, `variants`) |
+| GET | `/sfl/deliveries/stats?type=coins\|flower\|tickets&npc=&date=` | статистика по ночному дампу |
+| GET | `/sfl/items/{name}/owners?history=1` | последние проверки владения предметом у топа |
+| GET | `/sfl/auctions/{auction_id}/top-owners` | все проверки по аукциону + `new_owners` (кто появился с прошлой проверки) |
+| POST | `/admin/item-checks` | поставить ручную проверку в очередь (заголовок `X-Admin-Token`) |
+| GET | `/admin/item-checks/{id}` | статус ручной проверки и владельцы (заголовок `X-Admin-Token`) |
 
--- текущий баунти-борд (category = 'animal' | 'poppy')
-SELECT * FROM bounty_requests WHERE last_seen = (SELECT max(last_seen) FROM bounty_requests);
-
--- текущие билетные доставки
-SELECT * FROM ticket_delivery_consensus
-WHERE taken_at = (SELECT max(taken_at) FROM ticket_delivery_consensus);
-
--- статистика доставок за монеты / Flower по последнему дампу
-SELECT * FROM delivery_stats_daily
-WHERE dump_date = (SELECT max(dump_date) FROM delivery_stats_daily) AND reward_type = 'flower'
-ORDER BY avg_reward DESC;
-
--- все проверки по аукциону и владельцы
-SELECT c.trigger, c.checked_at, o.rank, o.username, o.amount, o.source
-FROM item_checks c JOIN item_check_owners o ON o.check_id = c.id
-WHERE c.auction_id = $1 ORDER BY c.checked_at, o.rank;
-
--- ручной запуск проверки (POST /admin/item-checks в goblin-api, только для админа)
-INSERT INTO item_check_requests (item_name, item_type, top_n) VALUES ($1, $2, 200) RETURNING id;
+Пример тела `POST /admin/item-checks`:
+```json
+{"item_name": "Pumpkin Hat", "item_type": "wearable", "top_n": 200}
 ```
+Ответ `202`: `{"id": 1, "status": "pending", "queue_position": 1, ...}`. Коллектор выполняет
+ручные проверки не чаще раза в 10 минут (`ITEM_CHECKS_MANUAL_COOLDOWN_SEC`).
 
-Предлагаемые эндпоинты `goblin-api`:
-`/sfl/merchant/current`, `/sfl/merchant/history`, `/sfl/chores/current`,
-`/sfl/bounties/current?category=`, `/sfl/deliveries/tickets`, `/sfl/deliveries/stats?type=`,
-`/sfl/items/{name}/owners?top=`, `/sfl/auctions/{id}/top-owners`, `POST /admin/item-checks`.
+`ADMIN_TOKEN` знает только сервер сайта: форма в админке Astro отправляет запрос со стороны
+SSR, токен не попадает в браузер. Если `ADMIN_TOKEN` не задан, админские эндпоинты отвечают 503.
+
+### Подключение на сайте (Astro SSR)
+```ts
+// .env сайта: SFL_DATA_API_URL=http://sfl-collector-api:8000
+const API = import.meta.env.SFL_DATA_API_URL;
+
+export async function getMerchant() {
+  const r = await fetch(`${API}/sfl/merchant/current`);
+  return r.ok ? r.json() : null;   // 404 — данных ещё нет
+}
+
+// только на сервере (endpoint/action Astro), не в клиентском коде!
+export async function requestItemCheck(item_name: string, item_type: "wearable" | "collectible") {
+  const r = await fetch(`${API}/admin/item-checks`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-admin-token": import.meta.env.SFL_ADMIN_TOKEN },
+    body: JSON.stringify({ item_name, item_type, top_n: 200 }),
+  });
+  return r.json();
+}
+```
 
 ## Деплой
 
@@ -117,7 +138,7 @@ INSERT INTO item_check_requests (item_name, item_type, top_n) VALUES ($1, $2, 20
 2. Пакет в GHCR по умолчанию приватный — Portainer должен иметь доступ к registry
    (как для goblin-bot).
 3. Portainer → Stacks → Add stack → Repository → этот репозиторий, compose `docker-compose.yml`.
-   Переменные окружения — из `.env.example` (минимум `DB_PASSWORD`, `SFL_API_KEY`).
+   Переменные окружения — из `.env.example` (минимум `DB_PASSWORD`, `SFL_API_KEY`, `ADMIN_TOKEN`).
 4. Пользователю БД нужны права CREATE TABLE в `sfl` (миграции) и SELECT/INSERT/UPDATE на
    `farmers`, `auctions`, `auction_results`.
 
@@ -140,7 +161,8 @@ python -m collector.migrate
 python -m collector.jobs.top_farms        # любой job можно запустить отдельно
 python -m collector.jobs.nightly_dump --force
 python -m collector.main                  # все циклы
+uvicorn api.main:app --port 8000          # API для сайта
 ```
 
-Тесты: `pytest -q`. Интеграционный тест на настоящем Postgres (пересоздаёт схему — только
+Тесты: `pytest -q`. Интеграционные тесты и тесты API на настоящем Postgres (в CI гоняются автоматически) (пересоздаёт схему — только
 тестовая БД!): `COLLECTOR_TEST_DB="127.0.0.1:5432:sfl_test:user:pass" pytest -q`.

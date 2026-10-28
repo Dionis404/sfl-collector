@@ -66,3 +66,8 @@ DUMP_TOP_N = int(os.environ.get("DUMP_TOP_N", "500"))  # полная прове
 DUMP_AUCTION_DAYS = int(os.environ.get("DUMP_AUCTION_DAYS", "14"))
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+
+# --- API для сайта (api/main.py) ---
+# Секрет для POST /admin/*; пустой = админские эндпоинты выключены
+ADMIN_TOKEN = os.environ.get("ADMIN_TOKEN", "").strip() or None
+API_MAX_TOP_N = int(os.environ.get("API_MAX_TOP_N", "500"))

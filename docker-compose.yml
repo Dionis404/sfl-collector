@@ -51,6 +51,26 @@ services:
       - 8.8.8.8
       - 1.1.1.1
 
+  # API для сайта: только читает БД. Порт наружу не публикуется —
+  # сайт ходит по shared-net: http://sfl-collector-api:8000
+  sfl-collector-api:
+    image: ghcr.io/dionis404/sfl-collector:latest
+    container_name: sfl-collector-api
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DB_HOST: ${DB_HOST:-postgres-main}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-sfl}
+      DB_USER: ${DB_USER:-goblin}
+      DB_PASSWORD: ${DB_PASSWORD}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+    networks:
+      - shared-net
+
 networks:
   shared-net:
     external: true
