@@ -2,6 +2,7 @@ services:
   # Одноразовый: применяет миграции и завершается. Коллектор стартует после него.
   migrate:
     image: ghcr.io/dionis404/sfl-collector:latest
+    pull_policy: always   # всегда свежий latest при деплое, а не закэшированный на сервере
     container_name: sfl-collector-migrate
     command: python -m collector.migrate
     restart: "no"
@@ -16,6 +17,7 @@ services:
 
   sfl-collector:
     image: ghcr.io/dionis404/sfl-collector:latest
+    pull_policy: always   # всегда свежий latest при деплое, а не закэшированный на сервере
     container_name: sfl-collector
     command: python -m collector.main
     restart: unless-stopped
@@ -55,6 +57,7 @@ services:
   # сайт ходит по shared-net: http://sfl-collector-api:8000
   sfl-collector-api:
     image: ghcr.io/dionis404/sfl-collector:latest
+    pull_policy: always   # всегда свежий latest при деплое, а не закэшированный на сервере
     container_name: sfl-collector-api
     command: uvicorn api.main:app --host 0.0.0.0 --port 8000
     restart: unless-stopped
