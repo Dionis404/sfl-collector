@@ -135,3 +135,58 @@ async def test_admin_item_check(client):
 
     got = (await client.get(f"/admin/item-checks/{req_id}", headers={"X-Admin-Token": "secret"})).json()
     assert got["item_name"] == "Golden Gnome" and "owners" not in got
+
+
+async def _seed_leaderboard(pool):
+    """Снимки топа: вс 23:00 МСК, пн 03:00 МСК (=00:00 UTC), пн 04:00 МСК."""
+    from datetime import datetime, timezone
+    t_sun = datetime(2026, 10, 25, 20, 0, tzinfo=timezone.utc)
+    t_mon = datetime(2026, 10, 26, 0, 0, tzinfo=timezone.utc)
+    t_later = datetime(2026, 10, 26, 1, 0, tzinfo=timezone.utc)
+    snaps = {
+        t_sun: [(1, 10, "a", 100), (2, 20, "b", 90), (3, 30, "c", 80)],
+        t_mon: [(1, 20, "b", 150), (2, 10, "a", 120), (3, 40, "d", 85)],
+        t_later: [(1, 20, "b", 160), (2, 10, "a", 125), (3, 40, "d", 90)],
+    }
+    for t, rows_ in snaps.items():
+        await pool.executemany(
+            "INSERT INTO top500_snapshots (rank, farm_id, game_username, tickets, taken_at) VALUES ($1,$2,$3,$4,$5)",
+            [(*r, t) for r in rows_],
+        )
+
+
+async def test_top_snapshot_and_compare(client):
+    await _seed_leaderboard(client.pool)
+
+    # пн 03:30 МСК -> последний снимок не позже — пн 03:00 МСК (00:00 UTC)
+    r = await client.get("/sfl/top/snapshot", params={"at": "2026-10-26T03:30", "tz": "Europe/Moscow"})
+    body = r.json()
+    assert r.status_code == 200 and body["taken_at"].startswith("2026-10-26T00:00:00")
+    assert body["lag_minutes"] == 30
+    assert [(x["rank"], x["farm_id"], x["username"]) for x in body["rows"]] == [(1, 20, "b"), (2, 10, "a"), (3, 40, "d")]
+
+    # то же с явным смещением, без tz
+    r2 = await client.get("/sfl/top/snapshot", params={"at": "2026-10-26T03:30:00+03:00", "limit": 1})
+    assert r2.json()["taken_at"] == body["taken_at"] and len(r2.json()["rows"]) == 1
+
+    assert (await client.get("/sfl/top/snapshot", params={"at": "2020-01-01T00:00"})).status_code == 404
+    assert (await client.get("/sfl/top/snapshot", params={"at": "2026-10-26T00:00", "tz": "Mars/Base"})).status_code == 422
+
+    # ночь с вс на пн по Москве: вс 23:00 -> пн 03:00
+    cmp_ = (await client.get("/sfl/top/compare", params={
+        "from": "2026-10-25T23:00", "to": "2026-10-26T03:00", "tz": "Europe/Moscow"})).json()
+    by = {x["farm_id"]: x for x in cmp_["rows"]}
+    assert by[20]["rank_change"] == 1 and by[20]["tickets_gained"] == 60      # 2 -> 1
+    assert by[10]["rank_change"] == -1 and by[10]["tickets_gained"] == 20     # 1 -> 2
+    assert by[40]["new_in_top"] is True and by[40]["rank_before"] is None
+    assert [d["farm_id"] for d in cmp_["dropped_out"]] == [30]
+
+    bad = await client.get("/sfl/top/compare", params={"from": "2026-10-26T03:00", "to": "2026-10-25T23:00",
+                                                        "tz": "Europe/Moscow"})
+    assert bad.status_code == 422
+    same = await client.get("/sfl/top/compare", params={"from": "2026-10-26T03:10", "to": "2026-10-26T03:20",
+                                                         "tz": "Europe/Moscow"})
+    assert same.status_code == 404
+
+    times = (await client.get("/sfl/top/snapshots", params={"date": "2026-10-26", "tz": "Europe/Moscow"})).json()
+    assert [t[11:16] for t in times] == ["00:00", "01:00"]     # 03:00 и 04:00 МСК в UTC

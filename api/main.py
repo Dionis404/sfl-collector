@@ -8,7 +8,8 @@ API sfl-collector для сайта goblincodex — только читает Б
 """
 import hmac
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
@@ -315,6 +316,109 @@ async def chapter_items_stats(
 
 
 # --- Топ лидерборда: опыт, уровень, возвышение, отслеживаемые предметы ---
+
+def _as_aware(value: datetime, tz: str) -> datetime:
+    """Время без часового пояса считаем заданным в `tz` (по умолчанию UTC)."""
+    if value.tzinfo is not None:
+        return value
+    try:
+        return value.replace(tzinfo=ZoneInfo(tz))
+    except ZoneInfoNotFoundError:
+        raise HTTPException(422, f"Неизвестный часовой пояс: {tz}")
+
+
+async def _snapshot_time(pool, at: datetime) -> datetime | None:
+    """Последний снимок топ-500, сделанный не позже `at`."""
+    return await pool.fetchval("SELECT max(taken_at) FROM top500_snapshots WHERE taken_at <= $1", at)
+
+
+@app.get("/sfl/top/snapshot")
+async def top_snapshot(
+    at: datetime = Query(..., description="Момент: 2026-10-26T03:00 (+ tz) или 2026-10-26T03:00+03:00"),
+    tz: str = Query("UTC", description="Часовой пояс для `at` без смещения, напр. Europe/Moscow"),
+    limit: int = Query(500, ge=1, le=500),
+):
+    """
+    Как выглядел топ-500 лидерборда тикетов в момент `at` — берётся последний
+    почасовой снимок, сделанный не позже этого момента.
+    """
+    pool = await db.get_pool()
+    at = _as_aware(at, tz)
+    taken_at = await _snapshot_time(pool, at)
+    if taken_at is None:
+        raise HTTPException(404, "Снимков лидерборда до этого момента нет")
+    data = await pool.fetch(
+        """SELECT rank, farm_id, game_username AS username, tickets FROM top500_snapshots
+           WHERE taken_at = $1 AND rank <= $2 ORDER BY rank""",
+        taken_at, limit,
+    )
+    return {"requested_at": at, "taken_at": taken_at, "lag_minutes": round((at - taken_at).total_seconds() / 60),
+            "rows": rows(data)}
+
+
+@app.get("/sfl/top/compare")
+async def top_compare(
+    since: datetime = Query(..., alias="from", description="Начало: напр. 2026-10-25T03:00"),
+    until: datetime = Query(..., alias="to", description="Конец: напр. 2026-10-26T03:00"),
+    tz: str = Query("UTC", description="Часовой пояс для времени без смещения, напр. Europe/Moscow"),
+    limit: int = Query(500, ge=1, le=500),
+):
+    """
+    Сравнение топа в два момента (напр. ночь с вс на пн): для каждого игрока из топа
+    на момент `to` — место и билеты тогда и сейчас, изменение места и сколько билетов
+    набрал. Кто был в топе в `from`, но выпал к `to`, — в `dropped_out`.
+    """
+    pool = await db.get_pool()
+    since, until = _as_aware(since, tz), _as_aware(until, tz)
+    if since >= until:
+        raise HTTPException(422, "`from` должен быть раньше `to`")
+    t_from, t_to = await _snapshot_time(pool, since), await _snapshot_time(pool, until)
+    if t_to is None or t_from is None:
+        raise HTTPException(404, "Нет снимка лидерборда на один из моментов")
+    if t_from == t_to:
+        raise HTTPException(404, "На оба момента приходится один и тот же снимок — между ними обновлений не было")
+
+    before = {r["farm_id"]: r for r in await pool.fetch(
+        "SELECT rank, farm_id, game_username, tickets FROM top500_snapshots WHERE taken_at = $1", t_from)}
+    after = await pool.fetch(
+        "SELECT rank, farm_id, game_username, tickets FROM top500_snapshots WHERE taken_at = $1 AND rank <= $2 ORDER BY rank",
+        t_to, limit,
+    )
+    out = []
+    for r in after:
+        b = before.get(r["farm_id"])
+        out.append({
+            "farm_id": r["farm_id"], "username": r["game_username"],
+            "rank": r["rank"], "tickets": r["tickets"],
+            "rank_before": b["rank"] if b else None, "tickets_before": b["tickets"] if b else None,
+            "rank_change": (b["rank"] - r["rank"]) if b else None,      # >0 — поднялся
+            "tickets_gained": (r["tickets"] - b["tickets"]) if b else None,
+            "new_in_top": b is None,
+        })
+    after_ids = {r["farm_id"] for r in await pool.fetch("SELECT farm_id FROM top500_snapshots WHERE taken_at = $1", t_to)}
+    dropped = [
+        {"farm_id": fid, "username": b["game_username"], "rank_before": b["rank"], "tickets_before": b["tickets"]}
+        for fid, b in sorted(before.items(), key=lambda kv: kv[1]["rank"]) if fid not in after_ids
+    ]
+    return {"from": {"requested_at": since, "taken_at": t_from},
+            "to": {"requested_at": until, "taken_at": t_to},
+            "rows": out, "dropped_out": dropped}
+
+
+@app.get("/sfl/top/snapshots")
+async def top_snapshot_times(
+    day: date = Query(..., alias="date", description="День, напр. 2026-10-26"),
+    tz: str = Query("UTC", description="Часовой пояс для границ дня, напр. Europe/Moscow"),
+):
+    """Когда делались снимки топа в этот день — чтобы выбрать момент для /sfl/top/snapshot."""
+    pool = await db.get_pool()
+    start = _as_aware(datetime.combine(day, datetime.min.time()), tz)
+    data = await pool.fetch(
+        "SELECT DISTINCT taken_at FROM top500_snapshots WHERE taken_at >= $1 AND taken_at < $2 ORDER BY taken_at",
+        start, start + timedelta(days=1),
+    )
+    return [r["taken_at"] for r in data]
+
 
 @app.get("/sfl/top/latest")
 async def top_latest(limit: int = Query(500, ge=1, le=500)):
