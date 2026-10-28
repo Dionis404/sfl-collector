@@ -1,29 +1,40 @@
 -- sfl-collector, миграция 001: все таблицы коллектора. БД: sfl.
 -- Таблицы лидерборда (top500_snapshots, ticket_leaderboard_snapshots) принадлежат
--- goblin-bot и уже существуют; IF NOT EXISTS — чтобы коллектор поднимался и на пустой БД.
+-- goblin-bot: создаются здесь только на пустой БД, существующие не трогаются.
 
--- ===== Лидерборд тикетов (те же таблицы, что у goblin-bot) =====
-CREATE TABLE IF NOT EXISTS top500_snapshots (
-    id            SERIAL PRIMARY KEY,
-    rank          INTEGER     NOT NULL,
-    farm_id       BIGINT      NOT NULL,
-    game_username TEXT,
-    tickets       INTEGER     NOT NULL,
-    taken_at      TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_top500_snapshots_taken_at ON top500_snapshots (taken_at DESC);
-CREATE INDEX IF NOT EXISTS idx_top500_snapshots_taken_rank ON top500_snapshots (taken_at, rank);
+-- ===== Лидерборд тикетов (таблицы goblin-bot) =====
+-- Создаются, ТОЛЬКО если их ещё нет (пустая/тестовая БД). На проде они уже есть и
+-- могут принадлежать другому пользователю Postgres: CREATE INDEX IF NOT EXISTS на
+-- чужой таблице падает с "must be owner of table" ещё до проверки IF NOT EXISTS,
+-- поэтому существующие таблицы и их индексы не трогаем вообще.
+DO $$
+BEGIN
+    IF to_regclass('top500_snapshots') IS NULL THEN
+        CREATE TABLE top500_snapshots (
+            id            SERIAL PRIMARY KEY,
+            rank          INTEGER     NOT NULL,
+            farm_id       BIGINT      NOT NULL,
+            game_username TEXT,
+            tickets       INTEGER     NOT NULL,
+            taken_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX idx_top500_snapshots_taken_at ON top500_snapshots (taken_at DESC);
+        CREATE INDEX idx_top500_snapshots_taken_rank ON top500_snapshots (taken_at, rank);
+    END IF;
 
-CREATE TABLE IF NOT EXISTS ticket_leaderboard_snapshots (
-    id            SERIAL PRIMARY KEY,
-    farm_id       BIGINT      NOT NULL,
-    rank          INTEGER     NOT NULL,
-    tickets       INTEGER     NOT NULL,
-    game_username TEXT,
-    taken_at      TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_ticket_snapshots_farm_taken
-    ON ticket_leaderboard_snapshots (farm_id, taken_at DESC);
+    IF to_regclass('ticket_leaderboard_snapshots') IS NULL THEN
+        CREATE TABLE ticket_leaderboard_snapshots (
+            id            SERIAL PRIMARY KEY,
+            farm_id       BIGINT      NOT NULL,
+            rank          INTEGER     NOT NULL,
+            tickets       INTEGER     NOT NULL,
+            game_username TEXT,
+            taken_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX idx_ticket_snapshots_farm_taken
+            ON ticket_leaderboard_snapshots (farm_id, taken_at DESC);
+    END IF;
+END $$;
 
 -- ===== Журнал запусков (что и когда собрали) =====
 CREATE TABLE IF NOT EXISTS collector_runs (
