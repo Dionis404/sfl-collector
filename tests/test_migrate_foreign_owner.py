@@ -53,7 +53,7 @@ async def test_migration_skips_tables_owned_by_another_role():
 
         conn = await asyncpg.connect(host=host, port=int(port), database=name, user=COLLECTOR, password=PASSWORD)
         try:
-            assert await migrate.apply_migrations(conn) == ["001_init.sql"]
+            assert await migrate.apply_migrations(conn) == sorted(p.name for p in migrate.MIGRATIONS_DIR.glob("*.sql"))
             # коллектор может писать в чужую таблицу (нужны только GRANT, не владение)
             await conn.execute("INSERT INTO top500_snapshots (rank, farm_id, tickets) VALUES (1, 1, 1)")
             # свои таблицы созданы

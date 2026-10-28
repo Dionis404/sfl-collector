@@ -69,6 +69,9 @@ DUMP_FILE_KIND = os.environ.get("DUMP_FILE_KIND", "active")  # active | all
 DUMP_TOP_N = int(os.environ.get("DUMP_TOP_N", "500"))  # полная проверка предметов по топу
 # Предметы аукционов за последние N дней перепроверяются по каждому новому дампу
 DUMP_AUCTION_DAYS = int(os.environ.get("DUMP_AUCTION_DAYS", "14"))
+# Предметы, наличие которых проверяем у топа в конкретной главе.
+# Формат: "Глава:Предмет,Предмет;Другая глава:Предмет"
+TOP_WATCH_ITEMS = os.environ.get("TOP_WATCH_ITEMS", "Cave Dwellers:Grinx's Hammer")
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 

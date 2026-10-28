@@ -58,7 +58,8 @@ def test_leaderboard_parsing():
                                {"rank": 62, "id": "sunny", "count": 1198, "farmId": 62559}],
     }
     top = parse_top(data)
-    assert top[0] == {"rank": 1, "farm_id": 121500, "game_username": "gordy", "tickets": 8420}
+    assert top[0] == {"rank": 1, "farm_id": 121500, "game_username": "gordy", "tickets": 8420,
+                      "experience": None, "ascension": None}
     assert parse_farm_rank(data, 62559) == {"rank": 62, "tickets": 1198, "game_username": "sunny"}
     # ферма в топ-10: farmRankingDetails отсутствует — ранг из topTen
     assert parse_farm_rank({"topTen": data["topTen"]}, 77)["rank"] == 2

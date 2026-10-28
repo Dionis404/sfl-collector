@@ -47,6 +47,8 @@ services:
       DUMP_ENABLED: ${DUMP_ENABLED:-true}
       DUMP_FILE_KIND: ${DUMP_FILE_KIND:-active}
       DUMP_TOP_N: ${DUMP_TOP_N:-500}
+      # Что проверять у топа в конкретной главе: "Глава:Предмет,Предмет;Глава:Предмет"
+      TOP_WATCH_ITEMS: ${TOP_WATCH_ITEMS:-Cave Dwellers:Grinx's Hammer}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     networks:
       - shared-net

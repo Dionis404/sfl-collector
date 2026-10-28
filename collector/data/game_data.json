@@ -1,0 +1,1426 @@
+{
+ "generated_at": "2026-10-28T17:05:38+00:00",
+ "source": "https://raw.githubusercontent.com/sunflower-land/sunflower-land/main/",
+ "chapters": [
+  {
+   "number": 1,
+   "name": "Solar Flare",
+   "start": "2023-01-01T00:00:00.000Z",
+   "end": "2023-05-01T00:00:00.000Z",
+   "mutants": [],
+   "megastore": []
+  },
+  {
+   "number": 2,
+   "name": "Dawn Breaker",
+   "start": "2023-05-01T00:00:00.000Z",
+   "end": "2023-08-01T00:00:00.000Z",
+   "mutants": [],
+   "megastore": []
+  },
+  {
+   "number": 3,
+   "name": "Witches' Eve",
+   "start": "2023-08-01T00:00:00.000Z",
+   "end": "2023-11-01T00:00:00.000Z",
+   "mutants": [],
+   "megastore": []
+  },
+  {
+   "number": 4,
+   "name": "Catch the Kraken",
+   "start": "2023-11-01T00:00:00.000Z",
+   "end": "2024-02-01T00:00:00.000Z",
+   "mutants": [],
+   "megastore": []
+  },
+  {
+   "number": 5,
+   "name": "Spring Blossom",
+   "start": "2024-02-01T00:00:00.000Z",
+   "end": "2024-05-01T00:00:00.000Z",
+   "mutants": [],
+   "megastore": []
+  },
+  {
+   "number": 6,
+   "name": "Clash of Factions",
+   "start": "2024-05-01T00:00:00.000Z",
+   "end": "2024-08-01T00:00:00.000Z",
+   "mutants": [],
+   "megastore": []
+  },
+  {
+   "number": 7,
+   "name": "Pharaoh's Treasure",
+   "start": "2024-08-01T00:00:00.000Z",
+   "end": "2024-11-01T00:00:00.000Z",
+   "mutants": [
+    {
+     "name": "Pharaoh Chicken",
+     "kind": "chicken",
+     "type": "collectible"
+    },
+    {
+     "name": "Desert Rose",
+     "kind": "flower",
+     "type": "collectible"
+    },
+    {
+     "name": "Lemon Shark",
+     "kind": "fish",
+     "type": "collectible"
+    }
+   ],
+   "megastore": [
+    {
+     "name": "Red Farmer Shirt",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Basic Bear",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Treasure Key",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Rancher Hair",
+     "type": "wearable",
+     "tier": "rare"
+    },
+    {
+     "name": "Axe",
+     "type": "wearable",
+     "tier": "rare"
+    },
+    {
+     "name": "Yellow Farmer Shirt",
+     "type": "wearable",
+     "tier": "rare"
+    },
+    {
+     "name": "Rare Key",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Blue Farmer Shirt",
+     "type": "wearable",
+     "tier": "epic"
+    },
+    {
+     "name": "Luxury Key",
+     "type": "collectible",
+     "tier": "epic"
+    }
+   ]
+  },
+  {
+   "number": 8,
+   "name": "Bull Run",
+   "start": "2024-11-01T00:00:00.000Z",
+   "end": "2025-02-03T00:00:00.000Z",
+   "mutants": [
+    {
+     "name": "Alien Chicken",
+     "kind": "chicken",
+     "type": "collectible"
+    },
+    {
+     "name": "Mootant",
+     "kind": "cow",
+     "type": "collectible"
+    },
+    {
+     "name": "Toxic Tuft",
+     "kind": "sheep",
+     "type": "collectible"
+    },
+    {
+     "name": "Chicory",
+     "kind": "flower",
+     "type": "collectible"
+    },
+    {
+     "name": "Longhorn Cowfish",
+     "kind": "fish",
+     "type": "collectible"
+    }
+   ],
+   "megastore": [
+    {
+     "name": "Cowboy Hat",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Cowgirl Skirt",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Cow Scratcher",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Spinning Wheel",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Treasure Key",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Cowboy Shirt",
+     "type": "wearable",
+     "tier": "rare"
+    },
+    {
+     "name": "Dream Scarf",
+     "type": "wearable",
+     "tier": "rare"
+    },
+    {
+     "name": "Sleepy Rug",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Meteorite",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Rare Key",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Cowboy Trouser",
+     "type": "wearable",
+     "tier": "epic"
+    },
+    {
+     "name": "Milk Apron",
+     "type": "wearable",
+     "tier": "epic"
+    },
+    {
+     "name": "Mechanical Bull",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Luxury Key",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Crop Circle",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Sheaf of Plenty",
+     "type": "collectible",
+     "tier": "mega"
+    }
+   ]
+  },
+  {
+   "number": 9,
+   "name": "Winds of Change",
+   "start": "2025-02-03T00:00:00.000Z",
+   "end": "2025-05-01T00:00:00.000Z",
+   "mutants": [
+    {
+     "name": "Summer Chicken",
+     "kind": "chicken",
+     "type": "collectible"
+    },
+    {
+     "name": "Frozen Cow",
+     "kind": "cow",
+     "type": "collectible"
+    },
+    {
+     "name": "Frozen Sheep",
+     "kind": "sheep",
+     "type": "collectible"
+    },
+    {
+     "name": "Chamomile",
+     "kind": "flower",
+     "type": "collectible"
+    },
+    {
+     "name": "Jellyfish",
+     "kind": "fish",
+     "type": "collectible"
+    }
+   ],
+   "megastore": [
+    {
+     "name": "Acorn Hat",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Kite",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Acorn House",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Spring Duckling",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Treasure Key",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Bronze Flower Box",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Ladybug Suit",
+     "type": "wearable",
+     "tier": "rare"
+    },
+    {
+     "name": "Igloo",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Ugly Duckling",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Lake Rug",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Rare Key",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Silver Flower Box",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Crab Hat",
+     "type": "wearable",
+     "tier": "epic"
+    },
+    {
+     "name": "Hammock",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Cup of Chocolate",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Mammoth",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Luxury Key",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Gold Flower Box",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Sickle",
+     "type": "wearable",
+     "tier": "mega"
+    }
+   ]
+  },
+  {
+   "number": 10,
+   "name": "Great Bloom",
+   "start": "2025-05-01T00:00:00.000Z",
+   "end": "2025-08-04T00:00:00.000Z",
+   "mutants": [
+    {
+     "name": "Love Chicken",
+     "kind": "chicken",
+     "type": "collectible"
+    },
+    {
+     "name": "Dr Cow",
+     "kind": "cow",
+     "type": "collectible"
+    },
+    {
+     "name": "Nurse Sheep",
+     "kind": "sheep",
+     "type": "collectible"
+    },
+    {
+     "name": "Lunalist",
+     "kind": "flower",
+     "type": "collectible"
+    },
+    {
+     "name": "Pink Dolphin",
+     "kind": "fish",
+     "type": "collectible"
+    }
+   ],
+   "megastore": [
+    {
+     "name": "Balloon Rug",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Amberfall Suit",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Embersteel Suit",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Flower Mask",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Treasure Key",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Bronze Flower Box",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Glacierguard Suit",
+     "type": "wearable",
+     "tier": "rare"
+    },
+    {
+     "name": "Bloomwarden Suit",
+     "type": "wearable",
+     "tier": "rare"
+    },
+    {
+     "name": "Giant Yam",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Rare Key",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Love Charm Shirt",
+     "type": "wearable",
+     "tier": "rare"
+    },
+    {
+     "name": "Silver Flower Box",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Flower-Scribed Statue",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Luxury Key",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Frost Sword",
+     "type": "wearable",
+     "tier": "epic"
+    },
+    {
+     "name": "Heart Air Balloon",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Giant Zucchini",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Gold Flower Box",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Oracle Syringe",
+     "type": "wearable",
+     "tier": "mega"
+    },
+    {
+     "name": "Giant Kale",
+     "type": "collectible",
+     "tier": "mega"
+    }
+   ]
+  },
+  {
+   "number": 11,
+   "name": "Better Together",
+   "start": "2025-08-04T00:00:00.000Z",
+   "end": "2025-11-03T00:00:00.000Z",
+   "mutants": [
+    {
+     "name": "Janitor Chicken",
+     "kind": "chicken",
+     "type": "collectible"
+    },
+    {
+     "name": "Baby Cow",
+     "kind": "cow",
+     "type": "collectible"
+    },
+    {
+     "name": "Baby Sheep",
+     "kind": "sheep",
+     "type": "collectible"
+    },
+    {
+     "name": "Venus Bumpkin Trap",
+     "kind": "flower",
+     "type": "collectible"
+    },
+    {
+     "name": "Poseidon",
+     "kind": "fish",
+     "type": "collectible"
+    }
+   ],
+   "megastore": [
+    {
+     "name": "Floor Mirror",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Long Rug",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Garbage Bin",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Bronze Flower Box",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Treasure Key",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Garbage Bin Hat",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Wheelbarrow",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Snail King",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Silver Flower Box",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Rare Key",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Architect Ruler",
+     "type": "wearable",
+     "tier": "rare"
+    },
+    {
+     "name": "Raccoon Onesie",
+     "type": "wearable",
+     "tier": "rare"
+    },
+    {
+     "name": "Reelmaster's Chair",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Rat King",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Fruit Tune Box",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Gold Flower Box",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Luxury Key",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Double Bed",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Recycle Shirt",
+     "type": "wearable",
+     "tier": "epic"
+    },
+    {
+     "name": "Giant Artichoke",
+     "type": "collectible",
+     "tier": "mega"
+    },
+    {
+     "name": "Pickaxe Shark",
+     "type": "wearable",
+     "tier": "mega"
+    },
+    {
+     "name": "Teamwork Monument",
+     "type": "collectible",
+     "tier": "mega"
+    }
+   ]
+  },
+  {
+   "number": 12,
+   "name": "Paw Prints",
+   "start": "2025-11-03T00:00:00.000Z",
+   "end": "2026-02-02T00:00:00.000Z",
+   "mutants": [
+    {
+     "name": "Sleepy Chicken",
+     "kind": "chicken",
+     "type": "collectible"
+    },
+    {
+     "name": "Astronaut Cow",
+     "kind": "cow",
+     "type": "collectible"
+    },
+    {
+     "name": "Astronaut Sheep",
+     "kind": "sheep",
+     "type": "collectible"
+    },
+    {
+     "name": "Black Hole Flower",
+     "kind": "flower",
+     "type": "collectible"
+    },
+    {
+     "name": "Super Star",
+     "kind": "fish",
+     "type": "collectible"
+    }
+   ],
+   "megastore": [
+    {
+     "name": "Petnip Plant",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Pet Kennel",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Pet Toys",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Bronze Flower Box",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Treasure Key",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Pet Specialist Hat",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Pet Playground",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Fish Bowl",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Silver Flower Box",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Rare Key",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Giant Gold Bone",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Pet Specialist Pants",
+     "type": "wearable",
+     "tier": "rare"
+    },
+    {
+     "name": "Giant Acorn",
+     "type": "collectible",
+     "tier": "rare"
+    },
+    {
+     "name": "Saw Fish",
+     "type": "wearable",
+     "tier": "epic"
+    },
+    {
+     "name": "Lunar Temple",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Gold Flower Box",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Luxury Key",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Messy Bed",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Pet Specialist Shirt",
+     "type": "wearable",
+     "tier": "epic"
+    },
+    {
+     "name": "Pet Egg",
+     "type": "collectible",
+     "tier": "epic"
+    },
+    {
+     "name": "Magma Stone",
+     "type": "collectible",
+     "tier": "mega"
+    },
+    {
+     "name": "Cornucopia",
+     "type": "collectible",
+     "tier": "mega"
+    }
+   ]
+  },
+  {
+   "number": 13,
+   "name": "Crabs and Traps",
+   "start": "2026-02-02T00:00:00.000Z",
+   "end": "2026-05-04T00:00:00.000Z",
+   "mutants": [
+    {
+     "name": "Squid Chicken",
+     "kind": "chicken",
+     "type": "collectible"
+    },
+    {
+     "name": "Mermaid Cow",
+     "kind": "cow",
+     "type": "collectible"
+    },
+    {
+     "name": "Mermaid Sheep",
+     "kind": "sheep",
+     "type": "collectible"
+    },
+    {
+     "name": "Anemone Flower",
+     "kind": "flower",
+     "type": "collectible"
+    },
+    {
+     "name": "Giant Isopod",
+     "kind": "fish",
+     "type": "collectible"
+    },
+    {
+     "name": "Nautilus",
+     "kind": "fish",
+     "type": "collectible"
+    },
+    {
+     "name": "Dollocaris",
+     "kind": "fish",
+     "type": "collectible"
+    }
+   ],
+   "megastore": [
+    {
+     "name": "Fish Hook Waders",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Fish Hook Vest",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Meerkat",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Crimstone Clam",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Poseidon's Throne",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Corn Silk Hair",
+     "type": "wearable",
+     "tier": "basic"
+    }
+   ]
+  },
+  {
+   "number": 14,
+   "name": "Salt Awakening",
+   "start": "2026-05-04T00:00:00.000Z",
+   "end": "2026-08-03T00:00:00.000Z",
+   "mutants": [
+    {
+     "name": "Flamingo Chicken",
+     "kind": "chicken",
+     "type": "collectible"
+    },
+    {
+     "name": "Spa Cow",
+     "kind": "cow",
+     "type": "collectible"
+    },
+    {
+     "name": "Spa Sheep",
+     "kind": "sheep",
+     "type": "collectible"
+    },
+    {
+     "name": "Salt Crystal Flower",
+     "kind": "flower",
+     "type": "collectible"
+    },
+    {
+     "name": "Deep Sea Pig",
+     "kind": "fish",
+     "type": "collectible"
+    },
+    {
+     "name": "Deep Sea Slug",
+     "kind": "fish",
+     "type": "collectible"
+    },
+    {
+     "name": "Crystal Shrimp",
+     "kind": "fish",
+     "type": "collectible"
+    }
+   ],
+   "megastore": [
+    {
+     "name": "Spa Hat",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Spa Robe",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Spa Slippers",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Gourmet Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Ore Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Timber Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Blossom Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Orchard Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Bubble Aura",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Crystal Altar",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Deep Sea Salt Cave Background",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Dino Egg Trophy",
+     "type": "collectible",
+     "tier": "basic"
+    }
+   ]
+  },
+  {
+   "number": 15,
+   "name": "Ascension Age",
+   "start": "2026-08-03T00:00:00.000Z",
+   "end": "2026-11-02T00:00:00.000Z",
+   "mutants": [
+    {
+     "name": "Ascended Chicken",
+     "kind": "chicken",
+     "type": "collectible"
+    },
+    {
+     "name": "Ascended Cow",
+     "kind": "cow",
+     "type": "collectible"
+    },
+    {
+     "name": "Ascended Sheep",
+     "kind": "sheep",
+     "type": "collectible"
+    },
+    {
+     "name": "Ruins Flower",
+     "kind": "flower",
+     "type": "collectible"
+    },
+    {
+     "name": "Crocodile",
+     "kind": "fish",
+     "type": "collectible"
+    },
+    {
+     "name": "Dumbo Octopus",
+     "kind": "fish",
+     "type": "collectible"
+    },
+    {
+     "name": "Seahorse Dad",
+     "kind": "fish",
+     "type": "collectible"
+    }
+   ],
+   "megastore": [
+    {
+     "name": "Swamp Lily Hat",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Swamp Armor",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Swamp Pants",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Gourmet Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Ore Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Timber Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Blossom Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Orchard Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Fisher's Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Harvest Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Moon Hair",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Astrolabe",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Ascension Monument",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Cornucopia",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Teamwork Monument",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Otty the Otter",
+     "type": "collectible",
+     "tier": "basic"
+    }
+   ]
+  },
+  {
+   "number": 16,
+   "name": "Cave Dwellers",
+   "start": "2026-11-02T00:00:00.000Z",
+   "end": "2027-02-01T00:00:00.000Z",
+   "mutants": [
+    {
+     "name": "Mushroom Chicken",
+     "kind": "chicken",
+     "type": "collectible"
+    },
+    {
+     "name": "Ladybug Cow",
+     "kind": "cow",
+     "type": "collectible"
+    },
+    {
+     "name": "Beetle Sheep",
+     "kind": "sheep",
+     "type": "collectible"
+    },
+    {
+     "name": "Cyclops Bloom",
+     "kind": "flower",
+     "type": "collectible"
+    },
+    {
+     "name": "Manatee",
+     "kind": "fish",
+     "type": "collectible"
+    },
+    {
+     "name": "Betta",
+     "kind": "fish",
+     "type": "collectible"
+    },
+    {
+     "name": "Macropinna",
+     "kind": "fish",
+     "type": "collectible"
+    }
+   ],
+   "megastore": [
+    {
+     "name": "Duende Shoes",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Duende Pants",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Duende Shirt",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Gourmet Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Ore Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Timber Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Blossom Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Orchard Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Fisher's Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Harvest Hourglass",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Duende Hat",
+     "type": "wearable",
+     "tier": "basic"
+    },
+    {
+     "name": "Straw House",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Duende Monument",
+     "type": "collectible",
+     "tier": "basic"
+    },
+    {
+     "name": "Mining Drill",
+     "type": "collectible",
+     "tier": "basic"
+    }
+   ]
+  }
+ ],
+ "level": {
+  "experience": {
+   "1": 0,
+   "2": 2,
+   "3": 22,
+   "4": 205,
+   "5": 555,
+   "6": 1155,
+   "7": 2155,
+   "8": 3405,
+   "9": 5405,
+   "10": 7905,
+   "11": 10905,
+   "12": 14405,
+   "13": 18405,
+   "14": 22905,
+   "15": 27905,
+   "16": 33655,
+   "17": 40155,
+   "18": 47405,
+   "19": 55405,
+   "20": 64155,
+   "21": 73905,
+   "22": 84655,
+   "23": 96405,
+   "24": 109155,
+   "25": 122905,
+   "26": 137405,
+   "27": 152905,
+   "28": 169405,
+   "29": 186905,
+   "30": 205405,
+   "31": 225405,
+   "32": 246905,
+   "33": 269905,
+   "34": 294405,
+   "35": 320405,
+   "36": 348405,
+   "37": 378405,
+   "38": 410405,
+   "39": 444405,
+   "40": 480405,
+   "41": 518905,
+   "42": 559905,
+   "43": 603405,
+   "44": 649405,
+   "45": 697905,
+   "46": 749405,
+   "47": 803905,
+   "48": 861405,
+   "49": 921905,
+   "50": 985405,
+   "51": 1053905,
+   "52": 1127405,
+   "53": 1205905,
+   "54": 1289405,
+   "55": 1377905,
+   "56": 1476405,
+   "57": 1584905,
+   "58": 1703405,
+   "59": 1831905,
+   "60": 1970405,
+   "61": 2128905,
+   "62": 2287405,
+   "63": 2485905,
+   "64": 2704405,
+   "65": 2942905,
+   "66": 3221405,
+   "67": 3539905,
+   "68": 3898405,
+   "69": 4296905,
+   "70": 4735405,
+   "71": 5233905,
+   "72": 5743905,
+   "73": 6263905,
+   "74": 6793905,
+   "75": 7333905,
+   "76": 7883905,
+   "77": 8443905,
+   "78": 9013905,
+   "79": 9593905,
+   "80": 10183905,
+   "81": 10783905,
+   "82": 11393905,
+   "83": 12013905,
+   "84": 12643905,
+   "85": 13283905,
+   "86": 13933905,
+   "87": 14593905,
+   "88": 15263905,
+   "89": 15943905,
+   "90": 16633905,
+   "91": 17333905,
+   "92": 18043905,
+   "93": 18763905,
+   "94": 19493905,
+   "95": 20233905,
+   "96": 20983905,
+   "97": 21743905,
+   "98": 22513905,
+   "99": 23293905,
+   "100": 24083905,
+   "101": 24893905,
+   "102": 25723905,
+   "103": 26573905,
+   "104": 27443905,
+   "105": 28333905,
+   "106": 29243905,
+   "107": 30173905,
+   "108": 31123905,
+   "109": 32093905,
+   "110": 33083905,
+   "111": 34093905,
+   "112": 35123905,
+   "113": 36173905,
+   "114": 37243905,
+   "115": 38333905,
+   "116": 39443905,
+   "117": 40573905,
+   "118": 41723905,
+   "119": 42893905,
+   "120": 44083905,
+   "121": 45293905,
+   "122": 46523905,
+   "123": 47773905,
+   "124": 49043905,
+   "125": 50333905,
+   "126": 51653905,
+   "127": 53003905,
+   "128": 54383905,
+   "129": 55793905,
+   "130": 57233905,
+   "131": 58708905,
+   "132": 60218905,
+   "133": 61763905,
+   "134": 63343905,
+   "135": 64958905,
+   "136": 66613905,
+   "137": 68308905,
+   "138": 70043905,
+   "139": 71818905,
+   "140": 73633905,
+   "141": 75493905,
+   "142": 77398905,
+   "143": 79348905,
+   "144": 81343905,
+   "145": 83383905,
+   "146": 85473905,
+   "147": 87613905,
+   "148": 89803905,
+   "149": 92043905,
+   "150": 94333905,
+   "151": 95662605,
+   "152": 97031166,
+   "153": 98440783,
+   "154": 99892688,
+   "155": 101388150,
+   "156": 102928475,
+   "157": 104515009,
+   "158": 106149139,
+   "159": 107832292,
+   "160": 109565939,
+   "161": 111351595,
+   "162": 113190820,
+   "163": 115085221,
+   "164": 117036454,
+   "165": 119046223,
+   "166": 121116285,
+   "167": 123248448,
+   "168": 125444575,
+   "169": 127706585,
+   "170": 130036455,
+   "171": 132436221,
+   "172": 134907979,
+   "173": 137453889,
+   "174": 140076176,
+   "175": 142777131,
+   "176": 145559114,
+   "177": 148424556,
+   "178": 151375961,
+   "179": 154415908,
+   "180": 157547053,
+   "181": 160772132,
+   "182": 164093963,
+   "183": 167515448,
+   "184": 171039577,
+   "185": 174669429,
+   "186": 178408176,
+   "187": 182259085,
+   "188": 186225521,
+   "189": 190310950,
+   "190": 194518941,
+   "191": 198853171,
+   "192": 203317427,
+   "193": 207915610,
+   "194": 212651738,
+   "195": 217529949,
+   "196": 222554506,
+   "197": 227729799,
+   "198": 233060350,
+   "199": 238550817,
+   "200": 244206000
+  },
+  "constants": {
+   "PRE_ASCENSION_MAX_LEVEL": 150.0,
+   "LEVELS_PER_ASCENSION": 50.0,
+   "ASCENSION_BAND_XP_BASE": 50000000.0,
+   "ASCENSION_BAND_XP_GROWTH": 1.45,
+   "ASCENSION_BAND_XP_ROUNDING": 5000000.0,
+   "ASCENSION_LEVEL_WEIGHT_PER_LEVEL": 0.03
+  }
+ }
+}

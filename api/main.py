@@ -14,7 +14,7 @@ from typing import Literal
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from collector import config, db
+from collector import config, db, game_data
 
 
 @asynccontextmanager
@@ -24,7 +24,7 @@ async def lifespan(_app: FastAPI):
     await db.close_pool()
 
 
-app = FastAPI(title="sfl-collector API", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="sfl-collector API", version="0.3.0", lifespan=lifespan)
 
 
 def rows(records) -> list[dict]:
@@ -191,6 +191,176 @@ async def auction_top_owners(auction_id: str):
         c["new_owners"] = sorted(current - prev) if prev is not None else []
         prev = current
     return checks
+
+
+# --- История ---
+
+@app.get("/sfl/chores/history")
+async def chores_history(weeks: int = Query(8, ge=1, le=104)):
+    """Задания по неделям, новые сверху: [{started_at, tasks: [...]}]."""
+    pool = await db.get_pool()
+    data = await pool.fetch(
+        """
+        SELECT npc, task, reward, started_at, first_seen, last_seen FROM weekly_chores
+        WHERE started_at IN (SELECT DISTINCT started_at FROM weekly_chores ORDER BY started_at DESC LIMIT $1)
+        ORDER BY started_at DESC, npc
+        """,
+        weeks,
+    )
+    out: list[dict] = []
+    for r in data:
+        d = dict(r)
+        if not out or out[-1]["started_at"] != d["started_at"]:
+            out.append({"started_at": d["started_at"], "tasks": []})
+        d.pop("started_at")
+        out[-1]["tasks"].append(d)
+    return out
+
+
+@app.get("/sfl/bounties/history")
+async def bounties_history(
+    boards: int = Query(8, ge=1, le=200),
+    category: Literal["animal", "poppy"] | None = None,
+):
+    """Составы баунти-борда, новые сверху: [{first_seen, last_seen, requests: [...]}]."""
+    pool = await db.get_pool()
+    snaps = await pool.fetch(
+        "SELECT id, request_ids, first_seen, last_seen FROM bounty_board_snapshots "
+        "ORDER BY first_seen DESC, id DESC LIMIT $1",
+        boards,
+    )
+    all_ids = sorted({i for s in snaps for i in s["request_ids"]})
+    reqs = {
+        r["id"]: dict(r)
+        for r in await pool.fetch(
+            "SELECT id, name, category, level, coins, items FROM bounty_requests WHERE id = ANY($1::text[])",
+            all_ids,
+        )
+    }
+    out = []
+    for snap in snaps:
+        items = [reqs[i] for i in snap["request_ids"] if i in reqs]
+        if category:
+            items = [r for r in items if r["category"] == category]
+        items.sort(key=lambda r: (r["category"], r["name"] or "", r["level"] or 0))
+        out.append({"first_seen": snap["first_seen"], "last_seen": snap["last_seen"], "requests": items})
+    return out
+
+
+@app.get("/sfl/deliveries/tickets/history")
+async def tickets_history(npc: str | None = None, days: int = Query(14, ge=1, le=120)):
+    """
+    Как менялся билетный заказ у NPC: подряд идущие одинаковые снимки склеены
+    в один отрезок [{npc, items, base_tickets, from, to, share}], новые сверху.
+    """
+    pool = await db.get_pool()
+    data = await pool.fetch(
+        """
+        SELECT npc, items, base_tickets, share, taken_at FROM ticket_delivery_consensus
+        WHERE taken_at >= now() - make_interval(days => $1) AND ($2::text IS NULL OR npc = $2)
+        ORDER BY npc, taken_at
+        """,
+        days, npc,
+    )
+    segments: list[dict] = []
+    for r in data:
+        last = segments[-1] if segments else None
+        if last and last["npc"] == r["npc"] and last["items"] == r["items"]:
+            last["to"] = r["taken_at"]
+        else:
+            segments.append({"npc": r["npc"], "items": r["items"], "base_tickets": r["base_tickets"],
+                             "share": r["share"], "from": r["taken_at"], "to": r["taken_at"]})
+    segments.sort(key=lambda s: (s["npc"], s["from"]), reverse=True)
+    return segments
+
+
+# --- Глава: мутанты и магазин Стеллы ---
+
+def _chapter_public(ch: dict) -> dict:
+    return {
+        "number": ch["number"], "name": ch["name"], "start": ch["start"], "end": ch["end"],
+        "items": game_data.chapter_items(ch),
+    }
+
+
+@app.get("/sfl/chapter/current")
+async def chapter_current():
+    """Текущая глава и её предметы (мутанты + магазин Стеллы) — из данных игры."""
+    ch = game_data.chapter_at()
+    if ch is None:
+        raise HTTPException(404, "Текущая глава не найдена — обнови collector/data/game_data.json")
+    return _chapter_public(ch)
+
+
+@app.get("/sfl/chapter/items")
+async def chapter_items_stats(
+    dump_date: date | None = Query(None, alias="date"),
+    source: Literal["mutant", "megastore"] | None = None,
+):
+    """Сколько игроков владеет предметами главы — по ночному дампу (все активные и топ)."""
+    pool = await db.get_pool()
+    day = dump_date or await pool.fetchval("SELECT max(dump_date) FROM chapter_item_stats_daily")
+    if day is None:
+        return {"date": None, "chapter": None, "rows": []}
+    data = rows(await pool.fetch(
+        """
+        SELECT chapter, item, item_type, source, kind, tier, holders, total, top_holders, top_total
+        FROM chapter_item_stats_daily
+        WHERE dump_date = $1 AND ($2::text IS NULL OR source = $2)
+        ORDER BY source DESC, kind NULLS LAST, tier NULLS LAST, item
+        """,
+        day, source,
+    ))
+    return {"date": day, "chapter": data[0]["chapter"] if data else None, "rows": data}
+
+
+# --- Топ лидерборда: опыт, уровень, возвышение, отслеживаемые предметы ---
+
+@app.get("/sfl/top/latest")
+async def top_latest(limit: int = Query(500, ge=1, le=500)):
+    """Опыт/уровень/возвышение топа — обновляется каждый час из лидерборда."""
+    pool = await db.get_pool()
+    return rows(await pool.fetch("SELECT * FROM top_player_latest ORDER BY rank LIMIT $1", limit))
+
+
+@app.get("/sfl/top/profiles")
+async def top_profiles(
+    dump_date: date | None = Query(None, alias="date"),
+    limit: int = Query(500, ge=1, le=500),
+):
+    """Профили топа по ночному дампу: опыт, уровень, возвышение и предметы главы (Grinx's Hammer и т.п.)."""
+    pool = await db.get_pool()
+    day = dump_date or await pool.fetchval("SELECT max(dump_date) FROM top_player_profiles")
+    if day is None:
+        return {"date": None, "rows": []}
+    data = await pool.fetch(
+        "SELECT * FROM top_player_profiles WHERE dump_date = $1 ORDER BY rank NULLS LAST LIMIT $2", day, limit,
+    )
+    return {"date": day, "rows": rows(data)}
+
+
+@app.get("/sfl/top/watched/{item_name}")
+async def top_watched_owners(item_name: str, dump_date: date | None = Query(None, alias="date")):
+    """Кто из топа владеет отслеживаемым предметом (напр. Grinx's Hammer) — по последнему дампу."""
+    pool = await db.get_pool()
+    day = dump_date or await pool.fetchval(
+        "SELECT max(dump_date) FROM top_player_profiles WHERE watched_items ? $1", item_name
+    )
+    if day is None:
+        raise HTTPException(404, "Этот предмет у топа ещё не отслеживался")
+    owners = rows(await pool.fetch(
+        """
+        SELECT farm_id, rank, username, (watched_items ->> $2)::numeric AS amount
+        FROM top_player_profiles
+        WHERE dump_date = $1 AND (watched_items ->> $2)::numeric > 0
+        ORDER BY rank NULLS LAST
+        """,
+        day, item_name,
+    ))
+    checked = await pool.fetchval(
+        "SELECT count(*) FROM top_player_profiles WHERE dump_date = $1 AND watched_items ? $2", day, item_name
+    )
+    return {"item": item_name, "date": day, "farms_checked": checked, "owners_count": len(owners), "owners": owners}
 
 
 # --- Админка: ручная проверка ---

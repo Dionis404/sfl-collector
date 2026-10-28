@@ -62,6 +62,18 @@ async def save_bounties(con: asyncpg.Connection, bounties: list[dict], now: date
     )
 
 
+async def save_bounty_board(con: asyncpg.Connection, bounties: list[dict], now: datetime) -> None:
+    """Новая запись состава борда — только если набор запросов изменился."""
+    ids = sorted(b["id"] for b in bounties)
+    last = await con.fetchrow("SELECT id, request_ids FROM bounty_board_snapshots ORDER BY first_seen DESC, id DESC LIMIT 1")
+    if last and list(last["request_ids"]) == ids:
+        await con.execute("UPDATE bounty_board_snapshots SET last_seen = $2 WHERE id = $1", last["id"], now)
+    else:
+        await con.execute(
+            "INSERT INTO bounty_board_snapshots (request_ids, first_seen, last_seen) VALUES ($1, $2, $2)", ids, now
+        )
+
+
 async def save_ticket_consensus(con: asyncpg.Connection, rows: list, now: datetime) -> None:
     await con.executemany(
         """
@@ -107,6 +119,7 @@ async def run() -> dict:
                 await save_chores(con, chores, now)
             if bounties:
                 await save_bounties(con, bounties, now)
+                await save_bounty_board(con, bounties, now)
             if consensus:
                 await save_ticket_consensus(con, consensus, now)
 

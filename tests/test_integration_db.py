@@ -51,7 +51,7 @@ async def pool(monkeypatch):
 
     conn = await asyncpg.connect(host=host, port=int(port), database=name, user=user, password=password)
     await conn.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
-    assert await migrate.apply_migrations(conn) == ["001_init.sql"]
+    assert await migrate.apply_migrations(conn) == sorted(p.name for p in migrate.MIGRATIONS_DIR.glob("*.sql"))
     assert await migrate.apply_migrations(conn) == []  # повторный запуск — ничего нового
     await conn.execute(EXTERNAL_TABLES)
     await conn.close()
@@ -60,7 +60,8 @@ async def pool(monkeypatch):
         return {i: FARMS[i] for i in ids if i in FARMS}
 
     async def fake_leaderboard(farm_id, limit=None):
-        top = [{"rank": i, "id": f"user{f}", "count": 1000 - i, "farmId": f} for i, f in enumerate(FARMS, 1)]
+        top = [{"rank": i, "id": f"user{f}", "count": 1000 - i, "farmId": f,
+                "experience": 2155 * i, "ascensionLevel": 0} for i, f in enumerate(FARMS, 1)]
         if limit:
             return {"topTen": top}
         return {"topTen": top[:1], "farmRankingDetails": [{"rank": 2500, "id": "far", "count": 5, "farmId": farm_id}]}
@@ -169,3 +170,85 @@ async def test_merchant_from_source_farms_when_top_has_no_cave(pool, monkeypatch
     assert stats["merchant_visit"] == -5 and stats["merchant_source"] == "source_farms"
     assert requested[-1] == [62559]
     assert await pool.fetchval("SELECT visit_index FROM cave_merchant_visits") == -5
+
+
+async def test_chapter16_dump_history_and_api(pool, monkeypatch):
+    """Глава 16: мутанты/магазин по дампу, профили топа с Grinx's Hammer, история баунти, API."""
+    import httpx
+
+    from api.main import app
+    from collector import game_data
+
+    b1 = game_data.ascension_baseline(1)
+    await tickets_leaderboard.run()
+    latest = {r["farm_id"]: r for r in await pool.fetch("SELECT * FROM top_player_latest")}
+    assert latest[10]["level"] == 7 and latest[10]["total_level"] == 7      # 2155 опыта = 7 уровень
+
+    # --- история баунти: два цикла с одним бордом, потом борд меняется ---
+    await top_farms.run()
+    await top_farms.run()
+    boards = await pool.fetch("SELECT * FROM bounty_board_snapshots ORDER BY id")
+    assert len(boards) == 1 and boards[0]["last_seen"] > boards[0]["first_seen"]
+    new_board = {fid: make_farm(bounty_ids=("zz9999",)) for fid in FARMS}
+    async def farms_new_board(ids, **_):
+        return {i: new_board[i] for i in ids if i in new_board}
+    monkeypatch.setattr(sfl_api, "get_farms", farms_new_board)
+    await top_farms.run()
+    assert await pool.fetchval("SELECT count(*) FROM bounty_board_snapshots") == 2
+
+    # --- дамп, снятый в главе 16 ---
+    dump_farms = {
+        10: {**make_farm(wardrobe={"Duende Hat": 1}, inventory={"Grinx's Hammer": 1, "Mushroom Chicken": 2}),
+             "bumpkin": {"experience": b1}, "island": {"ascensionLevel": 1}},
+        20: {**make_farm(inventory={"Mushroom Chicken": 1}), "bumpkin": {"experience": 2155}},
+        30: make_farm(),
+        555: make_farm(inventory={"Mushroom Chicken": 5}),            # не в топе
+        777: make_farm(inventory={"Mushroom Chicken": 9}),            # забанен — не считается
+    }
+
+    async def manifest():
+        return [{"filename": "2026-11-05/active.jsonl.gz", "modifiedAt": "2026-11-05T22:00:59.000Z"}]
+
+    async def stream(_):
+        for fid, farm in dump_farms.items():
+            yield {"id": fid, "farm": farm, "isBlacklisted": fid == 777}
+
+    monkeypatch.setattr(sfl_api, "get_dump_manifest", manifest)
+    monkeypatch.setattr(sfl_api, "stream_dump", stream)
+    stats = await nightly_dump.run()
+    assert stats["chapter"] == "Cave Dwellers" and stats["watched"] == ["Grinx's Hammer"]
+    assert stats["top_profiles"] == 3
+
+    chick = await pool.fetchrow("SELECT * FROM chapter_item_stats_daily WHERE item = 'Mushroom Chicken'")
+    assert (chick["holders"], float(chick["total"]), chick["top_holders"], float(chick["top_total"])) == (3, 8, 2, 3)
+    prof = await pool.fetchrow("SELECT * FROM top_player_profiles WHERE farm_id = 10")
+    assert (prof["ascension"], prof["level"], prof["total_level"]) == (1, 1, 151)
+    assert prof["watched_items"] == {"Grinx's Hammer": 1.0}
+
+    # --- API ---
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
+        ch = (await c.get("/sfl/chapter/items")).json()
+        assert ch["chapter"] == "Cave Dwellers" and ch["date"] == "2026-11-05"
+        mut = (await c.get("/sfl/chapter/items", params={"source": "mutant"})).json()["rows"]
+        assert {r["source"] for r in mut} == {"mutant"} and len(mut) == 7
+
+        grinx = (await c.get("/sfl/top/watched/Grinx's Hammer")).json()
+        assert grinx["farms_checked"] == 3 and [o["farm_id"] for o in grinx["owners"]] == [10]
+        assert (await c.get("/sfl/top/watched/Nothing")).status_code == 404
+
+        profiles = (await c.get("/sfl/top/profiles")).json()
+        assert profiles["date"] == "2026-11-05" and len(profiles["rows"]) == 3
+        assert len((await c.get("/sfl/top/latest", params={"limit": 2})).json()) == 2
+
+        boards = (await c.get("/sfl/bounties/history")).json()
+        assert [len(b["requests"]) for b in boards] == [1, 3]          # новый борд сверху
+        assert (await c.get("/sfl/bounties/history", params={"category": "poppy"})).json()[1]["requests"][0]["id"] == "ab12cd"
+
+        chores = (await c.get("/sfl/chores/history")).json()
+        assert len(chores) == 1 and {t["npc"] for t in chores[0]["tasks"]} == {"peggy", "miranda"}
+
+        hist = (await c.get("/sfl/deliveries/tickets/history", params={"npc": "tywin"})).json()
+        assert len(hist) == 1 and hist[0]["items"] == {"Gold": 3.0}   # 3 одинаковых снимка склеены в 1
+
+        cur = (await c.get("/sfl/chapter/current")).json()
+        assert cur["number"] in (15, 16) and cur["items"]

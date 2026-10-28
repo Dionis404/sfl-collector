@@ -16,7 +16,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
-from collector import config, db, sfl_api
+from collector import config, db, game_data, sfl_api
 from collector.runs import tracked_run
 
 log = logging.getLogger(__name__)
@@ -29,10 +29,28 @@ TOP500_QUERY_FARM_ID = 1  # любой валидный id: борд общий,
 
 def parse_top(data: dict) -> list[dict]:
     return [
-        {"rank": i, "farm_id": e["farmId"], "game_username": e.get("id"), "tickets": e["count"]}
+        {"rank": i, "farm_id": e["farmId"], "game_username": e.get("id"), "tickets": e["count"],
+         "experience": e.get("experience"), "ascension": e.get("ascensionLevel")}
         for i, e in enumerate(data.get("topTen") or [], start=1)
         if e.get("farmId") is not None
     ]
+
+
+async def save_top_latest(pool, top: list[dict], now: datetime) -> None:
+    """Опыт и возвышение топа — из того же ответа лидерборда, без лишних запросов."""
+    rows = []
+    for r in top:
+        lvl = game_data.player_level(r.get("experience") or 0, r.get("ascension"))
+        rows.append((r["farm_id"], r["rank"], r["game_username"], r["tickets"], r.get("experience"),
+                     lvl.ascension, lvl.level, lvl.total_level, now))
+    async with pool.acquire() as con, con.transaction():
+        await con.execute("DELETE FROM top_player_latest")
+        await con.executemany(
+            """INSERT INTO top_player_latest
+               (farm_id, rank, username, tickets, experience, ascension, level, total_level, updated_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)""",
+            rows,
+        )
 
 
 def parse_farm_rank(data: dict, farm_id: int) -> dict | None:
@@ -60,6 +78,7 @@ async def run() -> dict:
             [(r["rank"], r["farm_id"], r["game_username"], r["tickets"], now) for r in top],
         )
         stats["top"] = len(top)
+        await save_top_latest(pool, top, now)
 
         if not config.TICKETS_TRACK_FARMERS or not await db.table_exists(pool, "farmers"):
             return stats
