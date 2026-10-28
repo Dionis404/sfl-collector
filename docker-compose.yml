@@ -1,0 +1,56 @@
+services:
+  # Одноразовый: применяет миграции и завершается. Коллектор стартует после него.
+  migrate:
+    image: ghcr.io/dionis404/sfl-collector:latest
+    container_name: sfl-collector-migrate
+    command: python -m collector.migrate
+    restart: "no"
+    environment:
+      DB_HOST: ${DB_HOST:-postgres-main}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-sfl}
+      DB_USER: ${DB_USER:-goblin}
+      DB_PASSWORD: ${DB_PASSWORD}
+    networks:
+      - shared-net
+
+  sfl-collector:
+    image: ghcr.io/dionis404/sfl-collector:latest
+    container_name: sfl-collector
+    command: python -m collector.main
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DB_HOST: ${DB_HOST:-postgres-main}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME:-sfl}
+      DB_USER: ${DB_USER:-goblin}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SFL_API_BASE: ${SFL_API_BASE:-https://api.sunflower-land.com}
+      SFL_API_KEY: ${SFL_API_KEY}
+      SFL_PROXY: ${SFL_PROXY:-}
+      API_MIN_INTERVAL_SEC: ${API_MIN_INTERVAL_SEC:-6}
+      TICKETS_ENABLED: ${TICKETS_ENABLED:-true}
+      TICKETS_INTERVAL_SEC: ${TICKETS_INTERVAL_SEC:-3600}
+      TICKETS_TRACK_FARMERS: ${TICKETS_TRACK_FARMERS:-true}
+      TOP_FARMS_ENABLED: ${TOP_FARMS_ENABLED:-true}
+      TOP_FARMS_INTERVAL_SEC: ${TOP_FARMS_INTERVAL_SEC:-3600}
+      TOP_FARMS_N: ${TOP_FARMS_N:-100}
+      ITEM_CHECKS_ENABLED: ${ITEM_CHECKS_ENABLED:-true}
+      ITEM_CHECKS_TOP_N: ${ITEM_CHECKS_TOP_N:-200}
+      ITEM_CHECKS_AUCTION_DELAYS_H: ${ITEM_CHECKS_AUCTION_DELAYS_H:-1,24}
+      DUMP_ENABLED: ${DUMP_ENABLED:-true}
+      DUMP_FILE_KIND: ${DUMP_FILE_KIND:-active}
+      DUMP_TOP_N: ${DUMP_TOP_N:-500}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    networks:
+      - shared-net
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+
+networks:
+  shared-net:
+    external: true
