@@ -28,7 +28,7 @@ SFL_PROXY = os.environ.get("SFL_PROXY", "").strip() or None
 
 # Лимит community API — по IP, ~1 запрос / 5 с (при перегрузе 1 / 10 с).
 # Все сервисы на VPS делят его, поэтому берём с запасом.
-API_MIN_INTERVAL_SEC = float(os.environ.get("API_MIN_INTERVAL_SEC", "6"))
+API_MIN_INTERVAL_SEC = float(os.environ.get("API_MIN_INTERVAL_SEC", "10"))
 API_MAX_RETRIES = int(os.environ.get("API_MAX_RETRIES", "4"))
 API_RETRY_BASE_SEC = float(os.environ.get("API_RETRY_BASE_SEC", "10"))
 API_TIMEOUT_SEC = float(os.environ.get("API_TIMEOUT_SEC", "60"))
@@ -43,6 +43,11 @@ TICKETS_TRACK_FARMERS = _bool("TICKETS_TRACK_FARMERS", True)
 TOP_FARMS_ENABLED = _bool("TOP_FARMS_ENABLED", True)
 TOP_FARMS_INTERVAL_SEC = int(os.environ.get("TOP_FARMS_INTERVAL_SEC", "3600"))
 TOP_FARMS_N = int(os.environ.get("TOP_FARMS_N", "100"))
+# Пещера с торговцем есть не у всех (у топа лидерборда её может не быть вовсе).
+# Если в топе торговца не нашлось — берём его с этих ферм (через запятую).
+MERCHANT_SOURCE_FARM_IDS = [
+    int(x) for x in os.environ.get("MERCHANT_SOURCE_FARM_IDS", "62559,1").split(",") if x.strip()
+]
 
 # --- Проверки предметов у топа ---
 ITEM_CHECKS_ENABLED = _bool("ITEM_CHECKS_ENABLED", True)

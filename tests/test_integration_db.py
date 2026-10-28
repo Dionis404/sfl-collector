@@ -83,7 +83,8 @@ async def test_full_flow(pool, monkeypatch):
 
     # --- быстрый цикл по топу ---
     stats = await top_farms.run()
-    assert stats == {"farms": 3, "merchant_visit": -2, "chores": 2, "bounties": 3, "ticket_npcs": 1}
+    assert stats == {"farms": 3, "merchant_visit": -2, "merchant_source": "top",
+                     "chores": 2, "bounties": 3, "ticket_npcs": 1}
     merchant = await pool.fetchrow("SELECT * FROM cave_merchant_visits")
     assert merchant["visit_index"] == -2 and len(merchant["offers"]) == 2
     assert await pool.fetchval("SELECT count(*) FROM weekly_chores") == 2
@@ -149,3 +150,22 @@ async def test_full_flow(pool, monkeypatch):
     tango = await pool.fetchrow("SELECT * FROM delivery_stats_daily WHERE npc = 'tango'")
     assert tango["orders"] == 3 and tango["reward_type"] == "coins"  # забаненная ферма не учтена
     assert (await nightly_dump.run())["skipped"] == "already_processed"
+
+
+async def test_merchant_from_source_farms_when_top_has_no_cave(pool, monkeypatch):
+    """У топа лидерборда пещеры нет — торговец берётся с MERCHANT_SOURCE_FARM_IDS."""
+    no_cave = {fid: {k: v for k, v in make_farm().items() if k != "cave"} for fid in (10, 20, 30)}
+    source = {62559: make_farm(merchant_index=-5)}
+    requested = []
+
+    async def fake_get_farms(ids, **_):
+        requested.append(list(ids))
+        return {i: (no_cave.get(i) or source.get(i)) for i in ids if i in no_cave or i in source}
+
+    monkeypatch.setattr(sfl_api, "get_farms", fake_get_farms)
+    monkeypatch.setattr(config, "MERCHANT_SOURCE_FARM_IDS", [62559])
+    await tickets_leaderboard.run()
+    stats = await top_farms.run()
+    assert stats["merchant_visit"] == -5 and stats["merchant_source"] == "source_farms"
+    assert requested[-1] == [62559]
+    assert await pool.fetchval("SELECT visit_index FROM cave_merchant_visits") == -5

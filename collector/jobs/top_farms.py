@@ -87,6 +87,12 @@ async def run() -> dict:
         stats["farms"] = len(farm_list)
 
         merchant = global_state.extract_merchant(farm_list)
+        merchant_source = "top"
+        if merchant is None and config.MERCHANT_SOURCE_FARM_IDS:
+            # у топа пещеры нет — берём торговца с ферм, где она точно есть
+            extra = await sfl_api.get_farms(config.MERCHANT_SOURCE_FARM_IDS)
+            merchant = global_state.extract_merchant(list(extra.values()))
+            merchant_source = "source_farms"
         chores = global_state.extract_chores(farm_list)
         bounties = global_state.extract_bounties(farm_list)
         consensus = deliveries.ticket_consensus(farm_list)
@@ -106,6 +112,7 @@ async def run() -> dict:
 
         stats.update(
             merchant_visit=merchant["visit_index"] if merchant else None,
+            merchant_source=merchant_source if merchant else None,
             chores=len(chores),
             bounties=len(bounties),
             ticket_npcs=len(consensus),
