@@ -62,3 +62,18 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Автодеплой: дёргаем webhook стека в Portainer — он сам скачает новый образ
+      # (pull_policy: always в compose) и пересоздаст контейнеры. Переменные стека,
+      # заданные в UI Portainer, при этом сохраняются.
+      # Секрет PORTAINER_WEBHOOK_URL: Portainer → Stacks → sfl-collector → GitOps updates →
+      # Mechanism: Webhook → скопировать URL. Нет секрета — шаг пропускается.
+      - name: Redeploy stack in Portainer
+        env:
+          PORTAINER_WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+        if: env.PORTAINER_WEBHOOK_URL != ''
+        run: |
+          code=$(curl -sS -o /tmp/resp -w '%{http_code}' -X POST "$PORTAINER_WEBHOOK_URL")
+          echo "Portainer webhook: HTTP $code"
+          cat /tmp/resp || true
+          test "$code" -ge 200 -a "$code" -lt 300

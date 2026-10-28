@@ -133,6 +133,16 @@ export async function requestItemCheck(item_name: string, item_type: "wearable" 
 
 ## Деплой
 
+### Автоматический (после настройки)
+1. Один раз: Portainer → Stacks → `sfl-collector` → **GitOps updates** → включить,
+   Mechanism **Webhook**, включить **Re-pull image** → скопировать URL вебхука.
+2. Один раз: GitHub → репозиторий → Settings → Secrets and variables → Actions →
+   **New repository secret** `PORTAINER_WEBHOOK_URL` = этот URL.
+3. Дальше любой новый тег `v*` (или ручной запуск workflow) → тесты → сборка образа →
+   Portainer сам пересоздаёт стек.
+
+### Первичная установка
+
 1. Создать тег: `git tag v0.1.0 && git push --tags` → GitHub Actions прогонит тесты и соберёт
    `ghcr.io/dionis404/sfl-collector`.
 2. Пакет в GHCR по умолчанию приватный — Portainer должен иметь доступ к registry
