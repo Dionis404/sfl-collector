@@ -73,6 +73,20 @@ DUMP_AUCTION_DAYS = int(os.environ.get("DUMP_AUCTION_DAYS", "14"))
 # Формат: "Глава:Предмет,Предмет;Другая глава:Предмет"
 TOP_WATCH_ITEMS = os.environ.get("TOP_WATCH_ITEMS", "Cave Dwellers:Grinx's Hammer")
 
+# --- Цены маркетплейса (перенесено из sfl-price-service) ---
+MARKETPLACE_ENABLED = _bool("MARKETPLACE_ENABLED", True)
+MARKETPLACE_INTERVAL_SEC = int(os.environ.get("MARKETPLACE_INTERVAL_SEC", "300"))
+
+# --- Аукционы (перенесено из auctioneer-bot; пишем в его таблицы) ---
+AUCTIONS_ENABLED = _bool("AUCTIONS_ENABLED", True)
+AUCTIONS_LIST_INTERVAL_SEC = int(os.environ.get("AUCTIONS_LIST_INTERVAL_SEC", "86400"))
+AUCTIONS_RESULTS_POLL_SEC = int(os.environ.get("AUCTIONS_RESULTS_POLL_SEC", "150"))
+
+# --- On-demand обновление farm_cache (очередь от API) ---
+FARM_REFRESH_ENABLED = _bool("FARM_REFRESH_ENABLED", True)
+FARM_REFRESH_POLL_SEC = int(os.environ.get("FARM_REFRESH_POLL_SEC", "15"))
+FARM_REFRESH_BATCH = int(os.environ.get("FARM_REFRESH_BATCH", "5"))
+
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 
 # --- API для сайта (api/main.py) ---

@@ -1,18 +1,24 @@
 """
-API sfl-collector для сайта goblincodex — только читает БД (в SFL API не ходит).
+API sfl-collector для сайта goblincodex — единый API сайта (sfl-api).
 
-Сайт обращается к нему по shared-net: http://sfl-collector-api:8000.
+Только читает БД (в SFL API не ходит). Единственная запись — постановка
+farm_id в farm_refresh_queue: реальные запросы к SFL делает collector
+(collector/jobs/farm_refresh.py) под общим RateLimiter.
+
+Сайт обращается по shared-net: http://sfl-api:8000.
 Наружу порт не публикуется.
 
 Запуск: uvicorn api.main:app --host 0.0.0.0 --port 8000
 """
+import asyncio
 import hmac
+import time
 from contextlib import asynccontextmanager
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, Response
 from pydantic import BaseModel, Field
 
 from collector import config, db, game_data
@@ -505,3 +511,396 @@ async def get_item_check(request_id: int):
     if row["check_id"]:
         result["owners"] = (await _owners(pool, [row["check_id"]]))[row["check_id"]]
     return result
+
+
+# =====================================================================
+# Цены маркетплейса (sfl_resource_prices пишет collector/jobs/marketplace.py)
+# =====================================================================
+
+PRICE_CATEGORIES = ("collectibles", "wearables", "buds", "pets", "economies")
+PRICE_NUMERIC_FIELDS = (
+    "floor", "low", "high", "latest_sale", "best_offer",
+    "volume", "quantity", "flower_price",
+)
+
+
+def _price_row(r) -> dict:
+    d = dict(r)
+    for f in PRICE_NUMERIC_FIELDS:
+        if d.get(f) is not None:
+            d[f] = float(d[f])
+    floor, flower = d.get("floor"), d.get("flower_price")
+    sale = d.get("latest_sale")
+    d["floor_usd"] = floor * flower if floor is not None and flower is not None else None
+    d["latest_sale_usd"] = sale * flower if sale is not None and flower is not None else None
+    return d
+
+
+def _category_where(category: str | None) -> tuple[str, list]:
+    if category:
+        return "WHERE item_key LIKE $1 || '-%'", [category]
+    return "", []
+
+
+@app.get("/sfl/prices/resources")
+async def price_resources(
+    category: Literal["collectibles", "wearables", "buds", "pets", "economies"] | None = None,
+    limit: int = Query(5000, ge=1, le=20000),
+    offset: int = Query(0, ge=0),
+):
+    """Список отслеживаемых предметов (item_key + имя), по данным в БД."""
+    where, params = _category_where(category)
+    pool = await db.get_pool()
+    return rows(await pool.fetch(
+        f"""SELECT DISTINCT item_key, item_name FROM sfl_resource_prices
+            {where} ORDER BY item_name LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}""",
+        *params, limit, offset,
+    ))
+
+
+@app.get("/sfl/prices/latest")
+async def prices_latest(
+    category: Literal["collectibles", "wearables", "buds", "pets", "economies"] | None = None,
+    limit: int = Query(5000, ge=1, le=20000),
+    offset: int = Query(0, ge=0),
+):
+    """Последний известный снимок цены по каждому предмету."""
+    where, params = _category_where(category)
+    pool = await db.get_pool()
+    data = await pool.fetch(
+        f"""SELECT DISTINCT ON (item_key)
+                item_key, item_name, captured_at, snapshot_date,
+                floor, low, high, latest_sale, best_offer,
+                volume, trades, quantity, listing_count, offer_count, flower_price
+            FROM sfl_resource_prices
+            {where}
+            ORDER BY item_key, captured_at DESC
+            LIMIT ${len(params) + 1} OFFSET ${len(params) + 2}""",
+        *params, limit, offset,
+    )
+    return [_price_row(r) for r in data]
+
+
+@app.get("/sfl/prices/flower-rate")
+async def flower_rate(hours: int = Query(2160, ge=1, le=24 * 365)):
+    """История курса $/FLOWER по возрастанию времени (flower_price_history)."""
+    pool = await db.get_pool()
+    data = await pool.fetch(
+        """SELECT captured_at, usd FROM flower_price_history
+           WHERE captured_at >= now() - make_interval(hours => $1)
+           ORDER BY captured_at""",
+        hours,
+    )
+    return [{"captured_at": r["captured_at"], "usd": float(r["usd"])} for r in data]
+
+
+@app.get("/sfl/prices/{item_key}/latest")
+async def price_latest_for_item(item_key: str):
+    pool = await db.get_pool()
+    row = await pool.fetchrow(
+        """SELECT item_key, item_name, captured_at, snapshot_date,
+                  floor, low, high, latest_sale, best_offer,
+                  volume, trades, quantity, listing_count, offer_count, flower_price
+           FROM sfl_resource_prices
+           WHERE item_key = $1
+           ORDER BY captured_at DESC LIMIT 1""",
+        item_key,
+    )
+    if row is None:
+        raise HTTPException(404, f"Нет данных по {item_key}")
+    return _price_row(row)
+
+
+@app.get("/sfl/prices/{item_key}/history")
+async def price_history(
+    item_key: str,
+    hours: int = Query(24, ge=1, le=24 * 90),
+    limit: int = Query(2000, ge=1, le=20000),
+):
+    pool = await db.get_pool()
+    data = await pool.fetch(
+        """SELECT item_key, item_name, captured_at, snapshot_date,
+                  floor, low, high, latest_sale, best_offer,
+                  volume, trades, quantity, listing_count, offer_count, flower_price
+           FROM sfl_resource_prices
+           WHERE item_key = $1 AND captured_at >= now() - make_interval(hours => $2)
+           ORDER BY captured_at LIMIT $3""",
+        item_key, hours, limit,
+    )
+    if not data:
+        raise HTTPException(404, f"Нет данных по {item_key} за последние {hours}ч")
+    return [_price_row(r) for r in data]
+
+
+# =====================================================================
+# Кэш ферм для калькулятора сайта (farm_cache; обновляет collector из
+# farm_refresh_queue — см. collector/jobs/farm_refresh.py)
+# =====================================================================
+
+MAX_FARM_ID = 2**63 - 1  # farm_id хранится как BIGINT
+FARMS_MAX_IDS = 100
+FARM_STALE_AFTER = timedelta(hours=6)
+FARM_FORCE_REFRESH_COOLDOWN = timedelta(minutes=5)
+FARM_WAIT_SEC = 10.0  # сколько ждём первое появление фермы из очереди
+
+FarmId = Annotated[int, Path(gt=0, le=MAX_FARM_ID)]
+
+# Отрицательный кэш несуществующих ферм (свой в этом процессе; у worker'а —
+# свой). Час — как в collector/jobs/farm_refresh.py.
+_NOT_FOUND_TTL_SEC = 3600
+_not_found_until: dict[int, float] = {}
+
+
+def _farm_known_missing(farm_id: int) -> bool:
+    until = _not_found_until.get(farm_id)
+    if until is None:
+        return False
+    if until < time.monotonic():
+        del _not_found_until[farm_id]
+        return False
+    return True
+
+
+async def _enqueue_farm(pool, farm_id: int) -> None:
+    await pool.execute(
+        "INSERT INTO farm_refresh_queue (farm_id) VALUES ($1)"
+        " ON CONFLICT (farm_id) DO NOTHING",
+        farm_id,
+    )
+
+
+async def _get_farm_row(pool, farm_id: int):
+    return await pool.fetchrow("SELECT * FROM farm_cache WHERE farm_id = $1", farm_id)
+
+
+async def _touch_farm(pool, farm_id: int) -> None:
+    await pool.execute(
+        "UPDATE farm_cache SET last_requested_at = now() WHERE farm_id = $1", farm_id
+    )
+
+
+def _farm_is_stale(updated_at) -> bool:
+    if updated_at.tzinfo is None:
+        updated_at = updated_at.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - updated_at > FARM_STALE_AFTER
+
+
+@app.get("/farm/{farm_id}")
+async def get_farm(farm_id: FarmId):
+    """Данные фермы из кэша; null — данных пока нет (обновление поставлено в очередь)."""
+    pool = await db.get_pool()
+    row = await _get_farm_row(pool, farm_id)
+
+    if row is None or row["data"] is None:
+        if _farm_known_missing(farm_id):
+            return None
+        await _enqueue_farm(pool, farm_id)
+        # Первое обращение: ждём worker несколько секунд, отдадим сразу, если успеет.
+        deadline = time.monotonic() + FARM_WAIT_SEC
+        while time.monotonic() < deadline:
+            await asyncio.sleep(0.5)
+            row = await _get_farm_row(pool, farm_id)
+            if row is not None and row["data"] is not None:
+                break
+        if row is None or row["data"] is None:
+            return None
+        await _touch_farm(pool, farm_id)
+        return row["data"]
+
+    await _touch_farm(pool, farm_id)
+    if _farm_is_stale(row["updated_at"]):
+        await _enqueue_farm(pool, farm_id)
+    return row["data"]
+
+
+@app.get("/farms")
+async def get_farms(ids: str):
+    """Батч до 100 id: {"<id>": {"data": {...}, "updated_at": "..."} | null}."""
+    try:
+        farm_ids = sorted({int(x) for x in ids.split(",") if x.strip()})
+    except ValueError:
+        raise HTTPException(400, "ids должен быть списком чисел через запятую")
+    if not farm_ids:
+        return {}
+    if len(farm_ids) > FARMS_MAX_IDS:
+        raise HTTPException(400, f"Не больше {FARMS_MAX_IDS} id за запрос")
+    if not all(0 < fid <= MAX_FARM_ID for fid in farm_ids):
+        raise HTTPException(400, "Некорректный id фермы")
+
+    pool = await db.get_pool()
+    data = await pool.fetch(
+        "SELECT * FROM farm_cache WHERE farm_id = ANY($1::bigint[])", farm_ids
+    )
+    by_id = {r["farm_id"]: r for r in data}
+
+    result = {}
+    for fid in farm_ids:
+        row = by_id.get(fid)
+        if row is None or row["data"] is None:
+            if not _farm_known_missing(fid):
+                await _enqueue_farm(pool, fid)
+            result[str(fid)] = None
+            continue
+        if _farm_is_stale(row["updated_at"]):
+            await _enqueue_farm(pool, fid)
+        result[str(fid)] = {"data": row["data"], "updated_at": row["updated_at"]}
+        await _touch_farm(pool, fid)
+    return result
+
+
+@app.post("/farm/{farm_id}/refresh")
+async def force_refresh_farm(farm_id: FarmId):
+    """Форс-обновление через очередь; свежую запись (< 5 мин) повторно не тянем."""
+    pool = await db.get_pool()
+    row = await _get_farm_row(pool, farm_id)
+    if row is not None and row["data"] is not None:
+        updated_at = row["updated_at"]
+        if updated_at.tzinfo is None:
+            updated_at = updated_at.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) - updated_at < FARM_FORCE_REFRESH_COOLDOWN:
+            return {"status": "fresh"}
+    if _farm_known_missing(farm_id):
+        return {"status": "skipped"}
+    await _enqueue_farm(pool, farm_id)
+    return {"status": "refreshing"}
+
+
+# =====================================================================
+# Лидерборд тикетов (top500_snapshots пишет collector/jobs/tickets_leaderboard.py)
+# =====================================================================
+
+@app.get("/api/tickets/top500")
+async def tickets_top500(at: datetime | None = None):
+    """
+    Снэпшот глобального топ-500 лидерборда тикетов.
+    Без `at` — последний; с `at` (ISO 8601) — ближайший, но не позже него.
+    """
+    pool = await db.get_pool()
+    if at is None:
+        taken_at = await pool.fetchval("SELECT max(taken_at) FROM top500_snapshots")
+    else:
+        taken_at = await pool.fetchval(
+            "SELECT max(taken_at) FROM top500_snapshots WHERE taken_at <= $1", at
+        )
+    if taken_at is None:
+        return {"updated_at": None, "leaderboard": []}
+    data = await pool.fetch(
+        """SELECT rank, farm_id, game_username, tickets FROM top500_snapshots
+           WHERE taken_at = $1 ORDER BY rank""",
+        taken_at,
+    )
+    return {"updated_at": taken_at, "leaderboard": rows(data)}
+
+
+# =====================================================================
+# Аукционы (auctions / auction_results пишет collector/jobs/auctions.py)
+# =====================================================================
+
+@app.get("/api/auctions")
+async def api_auctions(
+    upcoming: bool = False,
+    history: bool = False,
+    limit: int = Query(20, ge=1, le=100),
+    item_name: str | None = Query(None, max_length=100),
+):
+    if upcoming and history:
+        raise HTTPException(400, "upcoming и history взаимоисключающие")
+    if not upcoming and not history:
+        raise HTTPException(400, "Укажите upcoming=true или history=true")
+    if item_name is not None and upcoming:
+        raise HTTPException(400, "item_name поддерживается только с history=true")
+
+    pool = await db.get_pool()
+    if upcoming:
+        data = await pool.fetch(
+            """SELECT auction_id, item_name, item_type, supply,
+                      sfl_price, ingredients, start_at, end_at
+               FROM auctions WHERE start_at > now() ORDER BY start_at ASC"""
+        )
+    elif item_name is not None:
+        # ILIKE без экранирования превращал "%"/"_" из запроса в wildcard'ы
+        pattern = item_name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        data = await pool.fetch(
+            """SELECT auction_id, item_name, item_type, supply,
+                      sfl_price, ingredients, start_at, end_at
+               FROM auctions WHERE start_at <= now() AND item_name ILIKE $2
+               ORDER BY start_at DESC LIMIT $1""",
+            limit, pattern,
+        )
+    else:
+        data = await pool.fetch(
+            """SELECT auction_id, item_name, item_type, supply,
+                      sfl_price, ingredients, start_at, end_at
+               FROM auctions WHERE start_at <= now()
+               ORDER BY start_at DESC LIMIT $1""",
+            limit,
+        )
+
+    return [
+        {
+            "auction_id": r["auction_id"],
+            "item_name": r["item_name"],
+            "item_type": r["item_type"],
+            "supply": r["supply"],
+            "sfl_price": float(r["sfl_price"]) if r["sfl_price"] is not None else None,
+            "ingredients": r["ingredients"],
+            "start_at": r["start_at"],
+            "end_at": r["end_at"],
+        }
+        for r in data
+    ]
+
+
+@app.get("/api/auctions/{auction_id}/results")
+async def api_auction_results(auction_id: str):
+    pool = await db.get_pool()
+    row = await pool.fetchrow(
+        """SELECT a.item_name, a.item_type,
+                  r.my_status, r.participant_count, r.supply, r.leaderboard, r.fetched_at
+           FROM auction_results r
+           JOIN auctions a ON a.auction_id = r.auction_id
+           WHERE r.auction_id = $1""",
+        auction_id,
+    )
+    if row is None:
+        raise HTTPException(404, "Результаты аукциона ещё не готовы")
+    return dict(row)
+
+
+# =====================================================================
+# Сообщество (farmers пишет goblin-bot, статы обновляет коллектор из дампа)
+# =====================================================================
+
+@app.get("/community/farmers")
+async def community_farmers():
+    """Список привязанных фермеров для страницы сообщества, по XP."""
+    pool = await db.get_pool()
+    data = await pool.fetch("SELECT * FROM farmers ORDER BY xp DESC NULLS LAST")
+    return [
+        {
+            "farm_id": r["farm_id"],
+            "game_username": r["game_username"],
+            "telegram_username": r["telegram_username"],
+            "xp": float(r["xp"]) if r["xp"] is not None else None,
+            "balance": float(r["balance"]) if r["balance"] is not None else None,
+            "coins": float(r["coins"]) if r["coins"] is not None else None,
+            "farm_url": r["farm_url"],
+        }
+        for r in data
+    ]
+
+
+@app.get("/api/community/posts/{post_id}/image")
+async def community_post_image(post_id: Annotated[int, Path(gt=0, le=MAX_FARM_ID)]):
+    """Картинка поста канала @URGSFL (telegram_posts пишет goblin-bot)."""
+    pool = await db.get_pool()
+    row = await pool.fetchrow(
+        "SELECT image_data, image_content_type FROM telegram_posts WHERE id = $1",
+        post_id,
+    )
+    if row is None or row["image_data"] is None:
+        raise HTTPException(404, "Картинка не найдена")
+    return Response(
+        content=row["image_data"],
+        media_type=row["image_content_type"] or "image/jpeg",
+    )

@@ -12,7 +12,15 @@ import logging
 import signal
 
 from collector import config, db, sfl_api
-from collector.jobs import item_checks, nightly_dump, tickets_leaderboard, top_farms
+from collector.jobs import (
+    auctions,
+    farm_refresh,
+    item_checks,
+    marketplace,
+    nightly_dump,
+    tickets_leaderboard,
+    top_farms,
+)
 
 log = logging.getLogger("collector")
 
@@ -47,6 +55,13 @@ async def main() -> None:
         tasks.append(periodic("item_checks", config.ITEM_CHECKS_POLL_SEC, item_checks.run_pass, initial_delay=60))
     if config.DUMP_ENABLED:
         tasks.append(periodic("nightly_dump", config.DUMP_POLL_SEC, nightly_dump.run, initial_delay=120))
+    if config.MARKETPLACE_ENABLED:
+        tasks.append(periodic("marketplace", config.MARKETPLACE_INTERVAL_SEC, marketplace.run, initial_delay=45))
+    if config.AUCTIONS_ENABLED:
+        tasks.append(periodic("auctions_list", config.AUCTIONS_LIST_INTERVAL_SEC, auctions.sync_list, initial_delay=90))
+        tasks.append(periodic("auction_results", config.AUCTIONS_RESULTS_POLL_SEC, auctions.sync_results, initial_delay=100))
+    if config.FARM_REFRESH_ENABLED:
+        tasks.append(periodic("farm_refresh", config.FARM_REFRESH_POLL_SEC, farm_refresh.run, initial_delay=15))
 
     if not tasks:
         log.warning("Все циклы выключены в настройках — нечего делать")

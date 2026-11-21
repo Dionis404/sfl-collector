@@ -40,6 +40,16 @@ def dump_date_of(filename: str) -> date:
     return date.fromisoformat(filename.split("/", 1)[0])
 
 
+def _num(v):
+    """balance/coins/xp приходят строкой или числом — приводим к float."""
+    if v is None:
+        return None
+    try:
+        return float(v)
+    except (ValueError, TypeError):
+        return None
+
+
 async def recent_auction_items(pool: asyncpg.Pool) -> list[tuple[str, str, str]]:
     """(auction_id, item_name, item_type) аукционов, закончившихся за DUMP_AUCTION_DAYS."""
     if not await db.table_exists(pool, "auctions"):
@@ -78,17 +88,32 @@ async def run(force: bool = False) -> dict:
         stats["chapter"] = chapter["name"] if chapter else None
         top = await latest_top(pool, config.DUMP_TOP_N)
         top_by_id = {r["farm_id"]: r for r in top}
+        # Фермеры сообщества (таблица goblin-bot): их статы обновим из дампа,
+        # а farm_cache сидируем полными объектами — без ежедневного getFarms.
+        farmer_ids: set[int] = set()
+        if await db.table_exists(pool, "farmers"):
+            farmer_ids = {r["farm_id"] for r in await pool.fetch("SELECT farm_id FROM farmers")}
 
         delivery_stats = DeliveryStats()
         item_stats = ChapterItemStats(game_data.chapter_items(chapter) if chapter else [])
         top_farms: dict[int, dict] = {}
         profiles: dict[int, dict] = {}
+        farm_stats: list[tuple] = []
+        farmer_farms: dict[int, dict] = {}
         farms = 0
         async for line in sfl_api.stream_dump(filename):
             farm = line.get("farm") or {}
             farms += 1
             fid = line.get("id")
             in_top = fid in top_by_id
+            if fid is not None:
+                farm_stats.append((
+                    fid, dump_day, farm.get("username"),
+                    _num((farm.get("bumpkin") or {}).get("experience")),
+                    _num(farm.get("balance")), _num(farm.get("coins")),
+                ))
+            if fid in farmer_ids:
+                farmer_farms[fid] = {"id": fid, "farm": farm}
             if not line.get("isBlacklisted"):
                 delivery_stats.add_farm(farm)
                 item_stats.add_farm(farm, in_top=in_top)
@@ -108,6 +133,41 @@ async def run(force: bool = False) -> dict:
                 [(dump_day, r["npc"], r["reward_type"], r["item"], r["orders"],
                   r["avg_reward"], r["min_reward"], r["max_reward"]) for r in rows],
             )
+
+        # Статы всех активных ферм -> farm_stats_daily (храним только последний дамп).
+        async with pool.acquire() as con, con.transaction():
+            await con.execute("DELETE FROM farm_stats_daily WHERE dump_date = $1", dump_day)
+            await con.executemany(
+                """INSERT INTO farm_stats_daily (farm_id, dump_date, username, xp, balance, coins)
+                   VALUES ($1,$2,$3,$4,$5,$6)
+                   ON CONFLICT (farm_id, dump_date) DO UPDATE SET
+                       username = EXCLUDED.username, xp = EXCLUDED.xp,
+                       balance = EXCLUDED.balance, coins = EXCLUDED.coins""",
+                farm_stats,
+            )
+            await con.execute("DELETE FROM farm_stats_daily WHERE dump_date < $1", dump_day)
+
+        # Статы фермеров сообщества из дампа (заменяет ежедневный getFarms
+        # в goblin-bot) + сидирование farm_cache полными объектами ферм.
+        farmers_updated = 0
+        if farmer_ids:
+            async with pool.acquire() as con, con.transaction():
+                res = await con.execute(
+                    """UPDATE farmers f SET xp = s.xp, balance = s.balance, coins = s.coins,
+                              game_username = COALESCE(s.username, f.game_username),
+                              updated_at = now()
+                       FROM farm_stats_daily s
+                       WHERE s.farm_id = f.farm_id AND s.dump_date = $1""",
+                    dump_day,
+                )
+                farmers_updated = int(res.split()[-1])
+                await con.executemany(
+                    """INSERT INTO farm_cache (farm_id, data, tracked, first_seen, last_requested_at, updated_at)
+                       VALUES ($1, $2, true, now(), now(), now())
+                       ON CONFLICT (farm_id) DO UPDATE
+                           SET data = EXCLUDED.data, updated_at = now(), is_refreshing = false""",
+                    [(fid, data) for fid, data in farmer_farms.items()],
+                )
 
         item_rows = item_stats.rows()
         async with pool.acquire() as con, con.transaction():
@@ -152,6 +212,7 @@ async def run(force: bool = False) -> dict:
         stats.update(
             farms=farms, delivery_rows=len(rows), top_farms_found=len(top_farms), item_checks=checks,
             chapter_items=len(item_rows), top_profiles=len(profiles), watched=watched,
+            farm_stats=len(farm_stats), farmers_updated=farmers_updated,
         )
         log.info("Дамп обработан: %s", stats)
         return stats

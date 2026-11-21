@@ -49,6 +49,17 @@ services:
       DUMP_TOP_N: ${DUMP_TOP_N:-500}
       # Что проверять у топа в конкретной главе: "Глава:Предмет,Предмет;Глава:Предмет"
       TOP_WATCH_ITEMS: ${TOP_WATCH_ITEMS:-Cave Dwellers:Grinx's Hammer}
+      # Цены маркетплейса (перенесено из sfl-price-service)
+      MARKETPLACE_ENABLED: ${MARKETPLACE_ENABLED:-true}
+      MARKETPLACE_INTERVAL_SEC: ${MARKETPLACE_INTERVAL_SEC:-300}
+      # Аукционы (перенесено из auctioneer-bot)
+      AUCTIONS_ENABLED: ${AUCTIONS_ENABLED:-true}
+      AUCTIONS_LIST_INTERVAL_SEC: ${AUCTIONS_LIST_INTERVAL_SEC:-86400}
+      AUCTIONS_RESULTS_POLL_SEC: ${AUCTIONS_RESULTS_POLL_SEC:-150}
+      # On-demand обновление farm_cache (очередь от API)
+      FARM_REFRESH_ENABLED: ${FARM_REFRESH_ENABLED:-true}
+      FARM_REFRESH_POLL_SEC: ${FARM_REFRESH_POLL_SEC:-15}
+      FARM_REFRESH_BATCH: ${FARM_REFRESH_BATCH:-5}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     networks:
       - shared-net
@@ -56,12 +67,13 @@ services:
       - 8.8.8.8
       - 1.1.1.1
 
-  # API для сайта: только читает БД. Порт наружу не публикуется —
-  # сайт ходит по shared-net: http://sfl-collector-api:8000
-  sfl-collector-api:
+  # Единый API для сайта (sfl-api): только читает БД. Порт наружу не
+  # публикуется — сайт ходит по shared-net: http://sfl-api:8000
+  # Старое имя sfl-collector-api оставлено сетевым алиасом на время перехода.
+  sfl-api:
     image: ghcr.io/dionis404/sfl-collector:latest
     pull_policy: always   # всегда свежий latest при деплое, а не закэшированный на сервере
-    container_name: sfl-collector-api
+    container_name: sfl-api
     command: uvicorn api.main:app --host 0.0.0.0 --port 8000
     restart: unless-stopped
     depends_on:
@@ -75,7 +87,9 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       ADMIN_TOKEN: ${ADMIN_TOKEN:-}
     networks:
-      - shared-net
+      shared-net:
+        aliases:
+          - sfl-collector-api
 
 networks:
   shared-net:

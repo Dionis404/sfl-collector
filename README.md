@@ -2,7 +2,11 @@
 
 Сборщик игровых данных Sunflower Land для сайта goblincodex. Единственный сервис,
 который ходит в SFL Community API: собирает данные в БД `sfl` и отдаёт их сайту
-через собственный API (`sfl-collector-api`).
+через единый API (`sfl-api`, бывший `sfl-collector-api` — старое имя осталось
+сетевым алиасом).
+
+Поглощённые сервисы: цены маркетплейса (бывший sfl-price-service), сбор аукционов
+(бывший сбор из auctioneer-bot), кэш ферм и API для сайта (бывший goblin-api).
 
 | Что собирается | Откуда | Как часто | Таблица |
 |---|---|---|---|
@@ -17,6 +21,11 @@
 | Профили топ-500: опыт, уровень, возвышение, предметы главы (Grinx's Hammer в главе 16) | ночной дамп | раз в сутки | `top_player_profiles` |
 | Опыт/уровень/возвышение топ-500 — последние значения | лидерборд (без лишних запросов) | раз в час | `top_player_latest` |
 | История баунти-борда | цикл по топу | при смене состава | `bounty_board_snapshots` |
+| Цены всех торгуемых предметов (change-log) | `marketplaceActivity` | каждые 5 мин | `sfl_resource_prices` |
+| Курс $/FLOWER | из того же ответа (`flowerPrice`) | каждые 5 мин | `flower_price_history` |
+| Список аукционов + результаты | `auctions`, `auctionResults` | сутки / каждые 2.5 мин | `auctions`, `auction_results` (владелец схем — auctioneer-bot) |
+| Статы всех активных ферм | ночной дамп | раз в сутки | `farm_stats_daily` → `farmers`, `farm_cache` |
+| Кэш ферм по запросу сайта (калькулятор) | очередь `farm_refresh_queue` | каждые 15 с | `farm_cache` (владелец схем исторически — goblin-bot) |
 
 ## Как это работает
 
@@ -26,17 +35,25 @@ SFL API  ◄──────┤ RateLimiter: 1 запрос / 10 с, на 429 
                 │  ├─ tickets       лидерборд тикетов             (1+ запрос в час) │
                 │  ├─ top_farms     getFarms топ-100              (1–4 запроса в час)│
                 │  ├─ item_checks   аукционы + ручные проверки    (по событию)       │
+                │  ├─ marketplace   цены маркетплейса             (1 запрос / 5 мин) │
+                │  ├─ auctions      список (сутки) + результаты   (по одному / 2.5 мин)│
+                │  ├─ farm_refresh  очередь обновления farm_cache (по одному / 15 с) │
                 │  └─ nightly_dump  манифест (1 запрос) + файл с CDN (без лимита)    │
                 └──────────────────────────────┬────────────────────────────────────┘
                                                ▼
                                       Postgres, БД "sfl"
                                                ▼
-              sfl-collector-api (только чтение БД)  ──shared-net──►  goblincodex (Astro SSR)
+                    sfl-api (только чтение БД)  ──shared-net──►  goblincodex (Astro SSR)
 ```
 
 Один образ — три контейнера: `migrate` (одноразовый), `sfl-collector` (сборщики),
-`sfl-collector-api` (FastAPI). Порт API наружу не публикуется: сайт ходит по `shared-net`
-на `http://sfl-collector-api:8000`.
+`sfl-api` (FastAPI). Порт API наружу не публикуется: сайт ходит по `shared-net`
+на `http://sfl-api:8000` (старое имя `sfl-collector-api` работает как алиас).
+
+Эндпоинты sfl-api: `/sfl/*` (игровые данные), `/sfl/prices/*` (цены и курс Flower),
+`/farm/{id}`, `/farms`, `POST /farm/{id}/refresh` (кэш ферм),
+`/api/tickets/top500`, `/api/auctions*`, `/community/farmers`,
+`/api/community/posts/{id}/image`.
 
 **Лимит API — по IP** (~1 запрос в 5 с, при перегрузе 1 в 10 с) и общий для всех сервисов
 на VPS. Второй ключ его не увеличивает. Поэтому все запросы идут через один `RateLimiter`,
