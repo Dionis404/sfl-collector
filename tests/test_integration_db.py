@@ -30,7 +30,13 @@ CREATE TABLE auction_results (
     participant_count int, supply int, leaderboard jsonb, fetched_at timestamptz DEFAULT now());
 CREATE TABLE farmers (
     farm_id BIGINT PRIMARY KEY, tickets_tracked BOOLEAN NOT NULL DEFAULT false,
-    tickets_excluded BOOLEAN NOT NULL DEFAULT false);
+    tickets_excluded BOOLEAN NOT NULL DEFAULT false,
+    game_username text, xp numeric, balance numeric, coins numeric,
+    updated_at timestamptz DEFAULT now());
+CREATE TABLE farm_cache (
+    farm_id BIGINT PRIMARY KEY, data jsonb, tracked boolean DEFAULT false,
+    first_seen timestamptz, last_requested_at timestamptz, updated_at timestamptz,
+    is_refreshing boolean DEFAULT false);
 """
 
 FARMS = {
@@ -146,11 +152,23 @@ async def test_full_flow(pool, monkeypatch):
 
     monkeypatch.setattr(sfl_api, "get_dump_manifest", fake_manifest)
     monkeypatch.setattr(sfl_api, "stream_dump", fake_stream)
+    # фермер сообщества, чья ферма есть в дампе: статы обновятся из дампа,
+    # а farm_cache сидируется полным объектом фермы
+    await pool.execute("INSERT INTO farmers (farm_id) VALUES (10)")
     stats = await nightly_dump.run()
     assert stats["farms"] == 4 and stats["top_farms_found"] == 3 and stats["item_checks"] == 1
     tango = await pool.fetchrow("SELECT * FROM delivery_stats_daily WHERE npc = 'tango'")
     assert tango["orders"] == 3 and tango["reward_type"] == "coins"  # забаненная ферма не учтена
     assert (await nightly_dump.run())["skipped"] == "already_processed"
+
+    # фермер сообщества обновлён из дампа (без ежедневного getFarms)
+    assert stats["farmers_updated"] == 1
+    farmer = await pool.fetchrow("SELECT * FROM farmers WHERE farm_id = 10")
+    assert farmer["updated_at"] is not None
+    cache_row = await pool.fetchrow("SELECT data, tracked FROM farm_cache WHERE farm_id = 10")
+    assert cache_row["tracked"] is True and cache_row["data"] is not None
+    # статы всех ферм дампа лежат в farm_stats_daily
+    assert await pool.fetchval("SELECT count(*) FROM farm_stats_daily WHERE dump_date = '2026-10-27'") == 4
 
 
 async def test_merchant_from_source_farms_when_top_has_no_cave(pool, monkeypatch):
