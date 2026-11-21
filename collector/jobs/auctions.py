@@ -106,13 +106,18 @@ async def sync_list() -> dict:
 
 
 async def sync_results() -> dict:
-    """Один завершившийся аукцион без результатов -> auction_results."""
+    """Один завершившийся аукцион без результатов -> auction_results.
+
+    Приоритет — свежим аукционам (последние 3 дня): результаты нужны на
+    сайте сразу после окончания. Исторический бэклог (2024+) догоняем
+    в хвосте очереди, не блокируя свежие.
+    """
     pool = await db.get_pool()
     row = await pool.fetchrow(
         """
         SELECT auction_id FROM auctions
         WHERE end_at <= now() AND NOT results_fetched
-        ORDER BY end_at
+        ORDER BY (end_at > now() - interval '3 days') DESC, end_at
         LIMIT 1
         """
     )
