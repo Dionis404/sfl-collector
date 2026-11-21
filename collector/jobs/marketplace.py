@@ -93,7 +93,7 @@ async def run() -> dict:
             if _last_state.get(item_key) == new_tuple:
                 continue
             changed.append((
-                captured_at, date_str, item_key, item_names.get(item_key, item_key),
+                captured_at, captured_at.date(), item_key, item_names.get(item_key, item_key),
                 v.get("floor"), v.get("low"), v.get("high"),
                 v.get("latestSale"), v.get("bestOffer"),
                 v.get("volume"), v.get("trades"), v.get("quantity"),
