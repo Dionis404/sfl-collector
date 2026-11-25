@@ -904,3 +904,109 @@ async def community_post_image(post_id: Annotated[int, Path(gt=0, le=MAX_FARM_ID
         content=row["image_data"],
         media_type=row["image_content_type"] or "image/jpeg",
     )
+
+
+# =====================================================================
+# Лидерборд билетов главы: победители аукционов и динамика топа
+# =====================================================================
+
+@app.get("/api/auctions/winners")
+async def api_auction_winners(start: datetime, end: datetime):
+    """Победители аукционов диапазона [start, end) с валютой выигрышной ставки.
+
+    Победители — первые `supply` строк leaderboard (столько экземпляров
+    разыгрывается). Валюта ставки: sfl > 0 -> "flower", items.Gem -> "gems",
+    иначе название первого ингредиента (или "tickets", если ставка в тикетах).
+    Используется вкладкой главы на сайте: пометки, кто уже взял предметы.
+    """
+    if end <= start:
+        raise HTTPException(400, "end должен быть позже start")
+    pool = await db.get_pool()
+    data = await pool.fetch(
+        """SELECT r.auction_id, a.item_name, r.supply, r.leaderboard
+           FROM auction_results r
+           JOIN auctions a ON a.auction_id = r.auction_id
+           WHERE a.start_at >= $1 AND a.start_at < $2
+           ORDER BY a.start_at""",
+        start, end,
+    )
+    winners = []
+    for r in data:
+        supply = r["supply"] or 1
+        lb = sorted(r["leaderboard"] or [], key=lambda e: e.get("rank") or 999999)
+        for entry in lb[:supply]:
+            items = entry.get("items") or {}
+            if entry.get("sfl"):
+                currency, amount = "flower", entry["sfl"]
+            elif items.get("Gem"):
+                currency, amount = "gems", items["Gem"]
+            elif items:
+                currency, amount = next(iter(items.items()))
+            else:
+                currency, amount = "tickets", entry.get("tickets")
+            winners.append({
+                "auction_id": r["auction_id"],
+                "item_name": r["item_name"],
+                "farm_id": entry.get("farmId"),
+                "username": entry.get("username"),
+                "currency": currency,
+                "amount": amount,
+            })
+    return winners
+
+
+@app.get("/api/tickets/top500/changes")
+async def tickets_top500_changes(hours: int = Query(24, ge=1, le=24 * 14)):
+    """Динамика топ-500 билетов за hours часов.
+
+    dropped — были в топ-500 на прошлом снимке, на свежем их нет
+    (вылетели из топа). fallen — остались, но просели на >= 50 позиций.
+    Сравнение с ближайшим снимком не позже now() - hours.
+    """
+    pool = await db.get_pool()
+    latest = await pool.fetchval("SELECT max(taken_at) FROM top500_snapshots")
+    if latest is None:
+        return {"updated_at": None, "compared_to": None, "dropped": [], "fallen": []}
+    prev = await pool.fetchval(
+        "SELECT max(taken_at) FROM top500_snapshots WHERE taken_at <= $1",
+        latest - timedelta(hours=hours),
+    )
+    if prev is None or prev == latest:
+        return {"updated_at": latest, "compared_to": None, "dropped": [], "fallen": []}
+
+    new_rows = await pool.fetch(
+        "SELECT rank, farm_id, game_username, tickets FROM top500_snapshots WHERE taken_at = $1",
+        latest,
+    )
+    old_rows = await pool.fetch(
+        "SELECT rank, farm_id, game_username, tickets FROM top500_snapshots WHERE taken_at = $1",
+        prev,
+    )
+    new_by_farm = {r["farm_id"]: r for r in new_rows}
+
+    dropped, fallen = [], []
+    for o in old_rows:
+        n = new_by_farm.get(o["farm_id"])
+        if n is None:
+            dropped.append({
+                "farm_id": o["farm_id"],
+                "username": o["game_username"],
+                "old_rank": o["rank"],
+                "old_tickets": o["tickets"],
+            })
+        elif n["rank"] - o["rank"] >= 50:
+            fallen.append({
+                "farm_id": o["farm_id"],
+                "username": n["game_username"] or o["game_username"],
+                "old_rank": o["rank"],
+                "rank": n["rank"],
+                "tickets": n["tickets"],
+            })
+    dropped.sort(key=lambda x: x["old_rank"])
+    fallen.sort(key=lambda x: x["rank"] - x["old_rank"], reverse=True)
+    return {
+        "updated_at": latest,
+        "compared_to": prev,
+        "dropped": dropped,
+        "fallen": fallen,
+    }
