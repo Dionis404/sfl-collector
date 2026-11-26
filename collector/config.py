@@ -38,6 +38,9 @@ TICKETS_ENABLED = _bool("TICKETS_ENABLED", True)
 TICKETS_INTERVAL_SEC = int(os.environ.get("TICKETS_INTERVAL_SEC", "3600"))
 # Отслеживать места фермеров бота (таблица farmers из goblin-bot)
 TICKETS_TRACK_FARMERS = _bool("TICKETS_TRACK_FARMERS", True)
+# Суточный архив изменений топ-500 (кто выбыл/просел) в top500_daily_changes
+CHANGES_ARCHIVE_ENABLED = _bool("CHANGES_ARCHIVE_ENABLED", True)
+CHANGES_ARCHIVE_INTERVAL_SEC = int(os.environ.get("CHANGES_ARCHIVE_INTERVAL_SEC", "3600"))
 
 # --- Быстрый цикл по топу (торговец, задания, баунти, билетные доставки) ---
 TOP_FARMS_ENABLED = _bool("TOP_FARMS_ENABLED", True)

@@ -19,6 +19,7 @@ from collector.jobs import (
     marketplace,
     nightly_dump,
     tickets_leaderboard,
+    top500_changes_archive,
     top_farms,
 )
 
@@ -48,6 +49,14 @@ async def main() -> None:
     tasks = []
     if config.TICKETS_ENABLED:
         tasks.append(periodic("tickets", config.TICKETS_INTERVAL_SEC, tickets_leaderboard.run))
+        if config.CHANGES_ARCHIVE_ENABLED:
+            # после снимка топ-500: архив изменений читает свежие top500_snapshots
+            tasks.append(periodic(
+                "top500_changes_archive",
+                config.CHANGES_ARCHIVE_INTERVAL_SEC,
+                top500_changes_archive.run,
+                initial_delay=90,
+            ))
     if config.TOP_FARMS_ENABLED:
         # даём лидерборду собраться первым: топ берётся из top500_snapshots
         tasks.append(periodic("top_farms", config.TOP_FARMS_INTERVAL_SEC, top_farms.run, initial_delay=30))

@@ -31,7 +31,7 @@ async def lifespan(_app: FastAPI):
     await db.close_pool()
 
 
-app = FastAPI(title="sfl-collector API", version="0.3.0", lifespan=lifespan)
+app = FastAPI(title="sfl-collector API", version="0.4.0", lifespan=lifespan)
 
 
 def rows(records) -> list[dict]:
@@ -1010,3 +1010,40 @@ async def tickets_top500_changes(hours: int = Query(24, ge=1, le=24 * 14)):
         "dropped": dropped,
         "fallen": fallen,
     }
+
+
+# --- Суточный архив изменений топ-500 (collector/jobs/top500_changes_archive.py) ---
+
+@app.get("/api/tickets/top500/changes/daily")
+async def tickets_top500_changes_daily_days(limit: int = Query(30, ge=1, le=90)):
+    """Дни, за которые есть архив изменений топ-500, с количеством выбывших/просевших."""
+    pool = await db.get_pool()
+    return rows(await pool.fetch(
+        """SELECT day,
+                  count(*) FILTER (WHERE kind = 'dropped') AS dropped,
+                  count(*) FILTER (WHERE kind = 'fallen') AS fallen
+           FROM top500_daily_changes
+           GROUP BY day ORDER BY day DESC LIMIT $1""",
+        limit,
+    ))
+
+
+@app.get("/api/tickets/top500/changes/daily/{day}")
+async def tickets_top500_changes_daily(day: date = Path(...)):
+    """Кто выбыл из топ-500 и кто сильно просел в конкретный день (UTC)."""
+    pool = await db.get_pool()
+    records = rows(await pool.fetch(
+        """SELECT farm_id, username, kind, old_rank, old_tickets, new_rank, new_tickets
+           FROM top500_daily_changes WHERE day = $1
+           ORDER BY kind, old_rank""",
+        day,
+    ))
+    dropped = [{
+        "farm_id": r["farm_id"], "username": r["username"],
+        "old_rank": r["old_rank"], "old_tickets": r["old_tickets"],
+    } for r in records if r["kind"] == "dropped"]
+    fallen = [{
+        "farm_id": r["farm_id"], "username": r["username"],
+        "old_rank": r["old_rank"], "rank": r["new_rank"], "tickets": r["new_tickets"],
+    } for r in records if r["kind"] == "fallen"]
+    return {"day": day, "dropped": dropped, "fallen": fallen}
